@@ -599,8 +599,8 @@ when you're unsure where code belongs.
 | Scenario | Layer | Reasoning |
 | -------- | ----- | --------- |
 | Validation needing a DB lookup (e.g. "email must be unique") | Application | Requires I/O via port; domain defines `ErrConflict`, app detects the condition |
-| Multi-entity business rule (e.g. "project can hold N todos") | Domain for the rule, Application for fetching | `project.CanAddTodo(count)` is a domain method; app fetches the count |
-| Business calculation with logging | Domain for the calc, Application wraps with logging | `CalculateProgress(todos)` is pure; app logs before/after |
+| Multi-entity business rule (e.g. "project can hold N todos") | Domain for the rule, application layer for fetching | `project.CanAddTodo(count)` is a domain method; application layer fetches the count |
+| Business calculation with logging | Domain for the calc, application layer wraps with logging | `CalculateProgress(todos)` is pure; application layer logs before/after |
 | Entity state transitions (e.g. "mark todo complete") | Domain (entity method) | Valid transitions are a business rule |
 | Coordinated state changes across entities | Application | Orchestrates multiple port calls |
 
@@ -617,7 +617,7 @@ func (t *Todo) ValidateUnique(ctx context.Context, repo TodoRepository) error {
     return nil
 }
 
-// ✅ RIGHT - App orchestrates, domain defines rules and errors
+// ✅ RIGHT - Application layer orchestrates, domain defines rules and errors
 // internal/app/todo_service.go
 func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
     if err := todo.Validate(); err != nil { // Domain: pure validation
@@ -639,20 +639,20 @@ func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
 **Example: Multi-Entity Business Rule**
 
 ```go
-// ❌ WRONG - Business rule lives in application layer
+// ❌ WRONG - Business rule lives in the application layer
 // internal/app/todo_service.go
 func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
     project, _ := s.projectClient.GetByID(ctx, todo.ProjectID)
     todos, _ := s.todoClient.ListByProject(ctx, todo.ProjectID)
 
-    if len(todos) >= project.MaxTodos { // Business rule in app layer!
+    if len(todos) >= project.MaxTodos { // Business rule in application layer!
         return domain.ErrValidation
     }
 
     return s.todoClient.Create(ctx, todo)
 }
 
-// ✅ RIGHT - Domain owns the rule, app orchestrates data fetching
+// ✅ RIGHT - Domain owns the rule, application layer orchestrates data fetching
 // internal/domain/project.go
 func (p *Project) CanAddTodo(currentCount int) error {
     if currentCount >= p.MaxTodos {
@@ -686,9 +686,9 @@ func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
 | Anti-Pattern | Why It's Wrong | Fix |
 | ------------ | -------------- | --- |
 | Domain service calls a port | Domain depends on infrastructure | Move to application layer |
-| App layer contains inline business rules | Logic coupled to orchestration, harder to test | Extract to domain entity method or domain service |
+| Application layer contains inline business rules | Logic coupled to orchestration, harder to test | Extract to domain entity method or domain service |
 | Entity method accepts a logger | Domain polluted with infrastructure | Log in application layer before/after calling domain |
-| App layer re-implements entity validation | Validation logic drifts, tested in two places | Call the entity's `Validate()` method instead |
+| Application layer re-implements entity validation | Validation logic drifts, tested in two places | Call the entity's `Validate()` method instead |
 
 #### Orchestration Patterns
 
