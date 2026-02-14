@@ -30,21 +30,13 @@ paths:
           description: Filter by status
           required: false
           schema:
-            type: string
-            enum:
-              - pending
-              - in_progress
-              - done
+            $ref: "#/components/schemas/TodoStatus"
         - name: category
           in: query
           description: Filter by category
           required: false
           schema:
-            type: string
-            enum:
-              - personal
-              - work
-              - other
+            $ref: "#/components/schemas/TodoCategory"
       responses:
         "200":
           description: Successful response with list of TODOs.
@@ -153,9 +145,9 @@ paths:
                 status: 404
                 detail: "TODO with ID 42 not found."
 
-    put:
+    patch:
       summary: Update a TODO
-      description: Update an existing TODO item. Only provided fields are changed.
+      description: Partially update an existing TODO item. Only provided fields are changed.
       operationId: update-todo
       tags:
         - todos
@@ -260,19 +252,11 @@ components:
           examples:
             - Milk, eggs, bread
         status:
-          type: string
-          enum:
-            - pending
-            - in_progress
-            - done
+          $ref: "#/components/schemas/TodoStatus"
           examples:
             - pending
         category:
-          type: string
-          enum:
-            - personal
-            - work
-            - other
+          $ref: "#/components/schemas/TodoCategory"
           examples:
             - personal
         progressPercent:
@@ -309,19 +293,11 @@ components:
           examples:
             - Milk, eggs, bread
         status:
-          type: string
-          enum:
-            - pending
-            - in_progress
-            - done
+          $ref: "#/components/schemas/TodoStatus"
           examples:
             - pending
         category:
-          type: string
-          enum:
-            - personal
-            - work
-            - other
+          $ref: "#/components/schemas/TodoCategory"
           examples:
             - personal
         progressPercent:
@@ -345,19 +321,11 @@ components:
           examples:
             - Milk, eggs, bread, butter
         status:
-          type: string
-          enum:
-            - pending
-            - in_progress
-            - done
+          $ref: "#/components/schemas/TodoStatus"
           examples:
             - in_progress
         category:
-          type: string
-          enum:
-            - personal
-            - work
-            - other
+          $ref: "#/components/schemas/TodoCategory"
           examples:
             - work
         progressPercent:
@@ -379,20 +347,40 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Todo"
-          examples:
-            - - id: 1
-                title: Buy groceries
-                description: Milk, eggs, bread
-                status: pending
-                category: personal
-                progressPercent: 0
-                createdAt: "2026-02-12T15:04:05Z"
-                updatedAt: "2026-02-12T15:04:05Z"
+          example:
+            - id: 1
+              title: Buy groceries
+              description: Milk, eggs, bread
+              status: pending
+              category: personal
+              progressPercent: 0
+              createdAt: "2026-02-12T15:04:05Z"
+              updatedAt: "2026-02-12T15:04:05Z"
         count:
           type: integer
           format: int64
           examples:
             - 5
+
+    TodoStatus:
+      type: string
+      description: The current status of a TODO item.
+      enum:
+        - pending
+        - in_progress
+        - done
+      examples:
+        - pending
+
+    TodoCategory:
+      type: string
+      description: The category of a TODO item.
+      enum:
+        - personal
+        - work
+        - other
+      examples:
+        - personal
 
     ErrorModel:
       type: object
