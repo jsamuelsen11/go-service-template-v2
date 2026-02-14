@@ -122,6 +122,21 @@ flowchart LR
     class PLT platform
 ```
 
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Platform |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Stadium (`([...])`) | System boundary (entry/exit) |
+| Solid arrow (`-->`) | Data / request flow |
+| Dashed arrow (`-.->`) | Dependency or implements |
+
 ### Dependency Rule: Always Inward
 
 ```mermaid
@@ -158,6 +173,19 @@ flowchart TB
     class Entity domain
 ```
 
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Stadium (`([...])`) | System boundary (entry/exit) |
+| Numbered arrows | Dependency direction (always inward) |
+
 ### Anti-Corruption Layer: Containing External Change
 
 The ACL acts as a protective boundary. When downstream services change, the impact is **contained to the adapter layer**.
@@ -191,6 +219,15 @@ flowchart TB
     class Client,DTO,Translator changed
     class API external
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (protected by architecture) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter layer only) |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | External API change (trigger) |
+| Hexagon (`{{...}}`) | Port / interface boundary |
 
 #### Scenario: Swapping Downstream Provider Entirely
 
@@ -227,6 +264,16 @@ flowchart TB
     style Domain fill:#84cc16,stroke:#65a30d,color:#fff
     style Ports fill:#84cc16,stroke:#65a30d,color:#fff
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (app, domain, ports) |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | New provider / ACL |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Old provider (removed) |
+| Dashed arrow (`-.->`) | Replaced dependency |
+| Solid arrow (`-->`) | Active dependency |
 
 ### Flexibility: The Power of Ports & Adapters
 
@@ -285,6 +332,17 @@ flowchart TB
     style Entity fill:#84cc16,stroke:#65a30d,color:#fff
     style Cfg fill:#f59e0b,stroke:#d97706,color:#fff
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain / unchanged |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | New schema adapter |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Old schema adapter |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Configuration (selects adapter) |
+| Hexagon (`{{...}}`) | Port / interface boundary |
 
 #### Flexibility 2: Gradual Domain Evolution
 
@@ -348,10 +406,21 @@ flowchart TB
     style LoyaltySvc fill:#f59e0b,stroke:#d97706,color:#fff
 ```
 
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | v1 (original, unchanged) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | v2 (added) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | v3 (added) |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+
 #### Flexibility 3: Multi-Version External Support
 
 Need to support multiple versions of an external API simultaneously? Each version gets its
-own adapter, all implementing the same port. Your domain doesn't care if data came from XML, JSON, or GraphQL.
+own adapter with its own ACL, all implementing the same port. Your domain doesn't care if
+data came from XML, JSON, or GraphQL -- each ACL translator absorbs the version-specific
+differences and produces the same domain entity.
 
 ```mermaid
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
@@ -362,10 +431,21 @@ flowchart TB
         V3["Partner API v3<br/>(beta partners)"]
     end
 
-    subgraph adapters["Adapter Layer - Version-Specific"]
-        A1["v1 Adapter<br/>Old field names<br/>XML format"]
-        A2["v2 Adapter<br/>New field names<br/>JSON format"]
-        A3["v3 Adapter<br/>GraphQL<br/>New auth"]
+    subgraph adapters["Adapter Layer - Version-Specific ACLs"]
+        subgraph a1["v1 Adapter"]
+            A1Client["ACL Client<br/>XML parser"]
+            A1Trans["ACL Translator<br/>Old field names → Domain"]
+        end
+
+        subgraph a2["v2 Adapter"]
+            A2Client["ACL Client<br/>JSON parser"]
+            A2Trans["ACL Translator<br/>New field names → Domain"]
+        end
+
+        subgraph a3["v3 Adapter"]
+            A3Client["ACL Client<br/>GraphQL client"]
+            A3Trans["ACL Translator<br/>GraphQL types → Domain"]
+        end
     end
 
     subgraph port["Port Layer"]
@@ -376,23 +456,50 @@ flowchart TB
         Entity["Partner Entity<br/>✅ Same domain model<br/>regardless of API version"]
     end
 
-    V1 --> A1
-    V2 --> A2
-    V3 --> A3
-    A1 -.->|"translates to"| Port
-    A2 -.->|"translates to"| Port
-    A3 -.->|"translates to"| Port
-    Port --> Entity
+    V1 --> A1Client
+    A1Client --> A1Trans
+    V2 --> A2Client
+    A2Client --> A2Trans
+    V3 --> A3Client
+    A3Client --> A3Trans
+
+    A1Trans -->|"produces"| Entity
+    A2Trans -->|"produces"| Entity
+    A3Trans -->|"produces"| Entity
+
+    Entity -->|"returned via"| Port
+
+    A1Trans -.->|"implements"| Port
+    A2Trans -.->|"implements"| Port
+    A3Trans -.->|"implements"| Port
 
     style V1 fill:#64748b,stroke:#475569,color:#fff
     style V2 fill:#10b981,stroke:#059669,color:#fff
     style V3 fill:#0ea5e9,stroke:#0284c7,color:#fff
-    style A1 fill:#64748b,stroke:#475569,color:#fff
-    style A2 fill:#10b981,stroke:#059669,color:#fff
-    style A3 fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style A1Client fill:#64748b,stroke:#475569,color:#fff
+    style A1Trans fill:#64748b,stroke:#475569,color:#fff
+    style A2Client fill:#10b981,stroke:#059669,color:#fff
+    style A2Trans fill:#10b981,stroke:#059669,color:#fff
+    style A3Client fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style A3Trans fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style a1 fill:none,stroke:#64748b,stroke-dasharray: 5 5
+    style a2 fill:none,stroke:#10b981,stroke-dasharray: 5 5
+    style a3 fill:none,stroke:#0ea5e9,stroke-dasharray: 5 5
     style Port fill:#a855f7,stroke:#9333ea,color:#fff
     style Entity fill:#84cc16,stroke:#65a30d,color:#fff
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain (unchanged) |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | v3 beta |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | v2 current |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | v1 legacy |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Dashed border | Version-specific adapter group |
 
 ### Worst Case: New Business Concepts Required
 
@@ -477,21 +584,19 @@ flowchart TB
     style CliPort fill:#84cc16,stroke:#65a30d,color:#fff
     style SvcPort fill:#84cc16,stroke:#65a30d,color:#fff
 
-    subgraph legend["Legend"]
-        L0["⚫ Existing external"]
-        L1["🔴 External change"]
-        L2["🟡 Updated (adapter only)"]
-        L3["🔵 New (added)"]
-        L4["🟢 Unchanged (protected)"]
-    end
-
-    style L0 fill:#64748b,stroke:#475569,color:#fff
-    style L1 fill:#ef4444,stroke:#dc2626,color:#fff
-    style L2 fill:#f59e0b,stroke:#d97706,color:#fff
-    style L3 fill:#0ea5e9,stroke:#0284c7,color:#fff
-    style L4 fill:#84cc16,stroke:#65a30d,color:#fff
-    style legend fill:none,stroke:#d1d5db
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | External change (trigger) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter only) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | New (added) |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (protected) |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Existing external |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Dashed arrow (`-.->`) | Implements / maps to |
 
 **Key insight**: Even when external APIs rename fields, change formats, or restructure data
 for _existing_ business concepts, the **ACL absorbs that translation**. The domain only
@@ -559,12 +664,80 @@ Orchestration services often need to fetch data from multiple downstream service
 same data may be needed multiple times) and coordinate multiple write operations that should
 succeed or fail together.
 
-The **Two-Phase Request Context Pattern** (`/internal/app/context/`) addresses this with
-request-scoped in-memory caching (`GetOrFetch`) and staged writes with automatic rollback
-(`AddAction` / `Commit`).
+The **Request Context Pattern** (`/internal/app/context/`) addresses this with three stages:
+request-scoped data fetching (`GetOrFetch`), staged writes (`AddAction`), and atomic commit
+with automatic rollback (`Commit`).
+
+```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
+flowchart TB
+    AppSvc["Application Service"]
+
+    subgraph rc["RequestContext"]
+        subgraph stage1["Stage 1: Fetch Data"]
+            GOF["GetOrFetch(key, fetchFn)"]
+            Cache[("In-Memory Cache")]
+            GOF -->|"cache miss"| FetchFn["fetchFn() via Port"]
+            FetchFn -->|"store result"| Cache
+            GOF -->|"cache hit"| Cache
+        end
+
+        subgraph stage2["Stage 2: Process Data"]
+            AddAct["AddAction()"]
+            Queue[("Action Queue<br/>[]Action")]
+            AddAct -->|"stage"| Queue
+        end
+
+        subgraph stage3["Stage 3: Commit"]
+            Commit["Commit()"]
+            Success["Return nil"]
+            Rollback["Rollback in<br/>reverse order"]
+            Queue -->|"execute in order"| Commit
+            Commit -->|"all succeed"| Success
+            Commit -->|"action fails"| Rollback
+        end
+    end
+
+    Downstream(["Downstream Services"])
+    FetchFn -->|"HTTP call"| Downstream
+    Commit -->|"HTTP calls"| Downstream
+
+    AppSvc -->|"① fetch"| GOF
+    Cache -->|"return cached"| AppSvc
+    AppSvc -->|"② stage writes"| AddAct
+    AppSvc -->|"③ commit"| Commit
+
+    style AppSvc fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style GOF fill:#f59e0b,stroke:#d97706,color:#fff
+    style Cache fill:#f59e0b,stroke:#d97706,color:#fff
+    style FetchFn fill:#f59e0b,stroke:#d97706,color:#fff
+    style AddAct fill:#f59e0b,stroke:#d97706,color:#fff
+    style Queue fill:#f59e0b,stroke:#d97706,color:#fff
+    style Commit fill:#f59e0b,stroke:#d97706,color:#fff
+    style Downstream fill:#64748b,stroke:#475569,color:#fff
+    style Success fill:#84cc16,stroke:#65a30d,color:#fff
+    style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
+    style rc fill:none,stroke:#d97706,stroke-width:2px
+    style stage1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage3 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application service |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Downstream services |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Success path |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | Rollback / error path |
+| Circle (`((...))`) | In-memory storage (cache, queue) |
+| Stadium (`([...])`) | External I/O boundary |
+| Dashed border | Stage boundary |
 
 See [ARCHITECTURE.md > Request Context Pattern](../ARCHITECTURE.md#request-context-pattern) for
-detailed diagrams, component reference, and implementation guidance.
+component reference, code examples, and implementation guidance.
 
 ## Consequences
 
@@ -592,10 +765,7 @@ detailed diagrams, component reference, and implementation guidance.
 
 ### Neutral
 
-- This pattern is well-established in the Go community (Netflix, Uber, etc.)
-- The template provides concrete examples making adoption easier
 - Dependency injection via `samber/do` v2 keeps the architecture explicit with minimal framework overhead
-- The investment in ACL pays dividends proportional to the number of external integrations and their rate of change
 
 ## References
 
