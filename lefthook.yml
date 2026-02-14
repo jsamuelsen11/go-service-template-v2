@@ -1,0 +1,96 @@
+# Lefthook configuration for git hooks
+# Install: go tool lefthook install
+# Run manually: go tool lefthook run pre-commit
+#
+# Pre-commit runs 3 sequential jobs: format → lint → security
+# Commands within each job run in parallel.
+
+pre-commit:
+  jobs:
+    # === Job 1: Format ===
+    # Auto-fix formatting issues before linting sees the code
+    - name: format
+      group:
+        parallel: true
+        jobs:
+          - name: go-mod-tidy
+            glob: "*.go"
+            run: go mod tidy
+
+          - name: gofumpt
+            glob: "*.go"
+            run: go tool gofumpt -w {staged_files}
+            stage_fixed: true
+
+          - name: tomll
+            glob: "*.toml"
+            run: go tool tomll {staged_files}
+            stage_fixed: true
+
+          - name: misspell
+            glob: "*.{go,md,yaml,yml,json,toml,sh}"
+            run: go tool misspell -w {staged_files}
+            stage_fixed: true
+
+          - name: prettier
+            glob: "*.{yaml,yml,json,md}"
+            exclude: "^(\\.github/.*|\\.beads/.*)$"
+            run: npx --yes prettier --write {staged_files}
+            stage_fixed: true
+
+    # === Job 2: Lint ===
+    # Check formatted code for issues
+    - name: lint
+      group:
+        parallel: true
+        jobs:
+          - name: golangci-lint
+            glob: "*.go"
+            run: go tool golangci-lint run --fix ./...
+            stage_fixed: true
+
+          - name: actionlint
+            glob: ".github/workflows/*.{yaml,yml}"
+            run: go tool actionlint {staged_files}
+
+          - name: vacuum
+            glob: "*openapi*.{yaml,yml,json}"
+            run: go tool vacuum lint -r .spectral.yaml {staged_files}
+
+          - name: markdownlint
+            glob: "*.md"
+            run: npx --yes markdownlint-cli@0.44.0 {staged_files}
+
+          - name: shellcheck
+            glob: "*.sh"
+            run: npx --yes shellcheck {staged_files}
+
+          - name: hadolint
+            glob: "Dockerfile*"
+            run: docker run --rm -i hadolint/hadolint < {staged_files}
+
+    # === Job 3: Security ===
+    # Scan for secrets and credentials
+    - name: security
+      group:
+        parallel: true
+        jobs:
+          - name: gitleaks
+            run: go tool gitleaks protect --staged --no-banner
+
+commit-msg:
+  commands:
+    commitlint:
+      run: go tool commitlint lint --message {1}
+
+pre-push:
+  parallel: true
+  commands:
+    go-test:
+      run: task test
+
+    go-build:
+      run: task build
+
+    govulncheck:
+      run: task vuln

@@ -1,0 +1,66 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    # Bugs
+    - bodyclose
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+    - gosec
+
+    # Style & conventions
+    - gofumpt
+    - goconst
+    - godot
+    - errname
+    - nolintlint
+
+    # Performance
+    - prealloc
+    - unconvert
+
+    # Complexity
+    - cyclop
+    - nestif
+
+    # Unused code
+    - unparam
+
+  settings:
+    cyclop:
+      max-complexity: 15
+
+    gofumpt:
+      extra-rules: true
+
+    nestif:
+      min-complexity: 5
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    gosec:
+      excludes:
+        - G104 # Duplicates errcheck
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+
+issues:
+  exclude-dirs:
+    - vendor
+    - testdata
+
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - bodyclose
+        - noctx

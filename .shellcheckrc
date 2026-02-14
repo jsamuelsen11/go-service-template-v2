@@ -1,0 +1,6 @@
+# Default to bash
+shell=bash
+
+# Allow sourcing from the same directory
+source-path=SCRIPTDIR
+external-sources=true

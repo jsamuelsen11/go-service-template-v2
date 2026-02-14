@@ -1,0 +1,6 @@
+[[allowlists]]
+description = 'Ignore generated and dependency files'
+paths = ['go\.sum', '\.beads/.*', 'testdata/.*']
+
+[extend]
+useDefault = true

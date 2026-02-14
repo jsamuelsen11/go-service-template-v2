@@ -1,0 +1,17 @@
+version: "3"
+
+tasks:
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./...
+
+  build:
+    desc: Build the project
+    cmds:
+      - go build ./...
+
+  vuln:
+    desc: Run vulnerability check
+    cmds:
+      - go tool govulncheck ./...
