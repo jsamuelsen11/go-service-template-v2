@@ -11,13 +11,13 @@ This project implements **Hexagonal Architecture** (Ports & Adapters) as defined
 
 ### Layer Rules
 
-| Layer | Location | May Depend On | Must NOT Depend On |
-|-------|----------|---------------|-------------------|
-| **Domain** | `internal/domain/` | Nothing | Ports, App, Adapters, Platform |
-| **Ports** | `internal/ports/` | Domain | App, Adapters, Platform |
-| **Application** | `internal/app/` | Domain, Ports | Adapters, Platform (except logging) |
-| **Adapters** | `internal/adapters/` | Domain, Ports, Platform | App (directly) |
-| **Platform** | `internal/platform/` | Nothing (cross-cutting) | Domain, Ports, App, Adapters |
+| Layer           | Location             | May Depend On           | Must NOT Depend On                  |
+| --------------- | -------------------- | ----------------------- | ----------------------------------- |
+| **Domain**      | `internal/domain/`   | Nothing                 | Ports, App, Adapters, Platform      |
+| **Ports**       | `internal/ports/`    | Domain                  | App, Adapters, Platform             |
+| **Application** | `internal/app/`      | Domain, Ports           | Adapters, Platform (except logging) |
+| **Adapters**    | `internal/adapters/` | Domain, Ports, Platform | App (directly)                      |
+| **Platform**    | `internal/platform/` | Nothing (cross-cutting) | Domain, Ports, App, Adapters        |
 
 **Dependency direction**: Always inward. Adapters depend on Ports, never the reverse.
 

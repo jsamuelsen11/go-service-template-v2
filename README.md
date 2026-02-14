@@ -4,7 +4,9 @@
 ![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-84cc16)
 ![DI](https://img.shields.io/badge/DI-samber%2Fdo_v2-a855f7)
 
-A production-ready Go service template implementing hexagonal architecture (ports & adapters). Designed as a starting point for building services that integrate with external APIs, with clean separation of concerns and testable layers.
+A production-ready Go service template implementing hexagonal architecture (ports & adapters).
+Designed as a starting point for building services that integrate with external APIs,
+with clean separation of concerns and testable layers.
 
 ## Table of Contents
 
@@ -63,7 +65,7 @@ task test
 
 ## Project Structure
 
-```
+```text
 internal/
   domain/          # Business entities and rules (zero dependencies)
   ports/           # Interface definitions (services.go, clients.go, health.go)
@@ -108,23 +110,25 @@ This service integrates with the TODO API defined in [`todo-service-openapi.yaml
 
 Endpoints:
 
-| Method | Path                | Description     |
-|--------|---------------------|-----------------|
-| GET    | `/api/v1/todos`     | List all TODOs  |
-| POST   | `/api/v1/todos`     | Create a TODO   |
-| GET    | `/api/v1/todos/{id}`| Get a TODO      |
-| PUT    | `/api/v1/todos/{id}`| Update a TODO   |
-| DELETE | `/api/v1/todos/{id}`| Delete a TODO   |
+| Method | Path                 | Description    |
+| ------ | -------------------- | -------------- |
+| GET    | `/api/v1/todos`      | List all TODOs |
+| POST   | `/api/v1/todos`      | Create a TODO  |
+| GET    | `/api/v1/todos/{id}` | Get a TODO     |
+| PUT    | `/api/v1/todos/{id}` | Update a TODO  |
+| DELETE | `/api/v1/todos/{id}` | Delete a TODO  |
 
 ## Architecture
 
-This template follows **hexagonal architecture** (ports & adapters), keeping business logic isolated from infrastructure concerns. Dependencies always point inward -- adapters depend on ports, never the reverse.
+This template follows **hexagonal architecture** (ports & adapters), keeping business logic
+isolated from infrastructure concerns. Dependencies always point inward -- adapters depend
+on ports, never the reverse.
 
 For the full architecture guide with diagrams, layer details, and implementation patterns, see [ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Documentation
 
-```
+```text
 docs/
   ARCHITECTURE.md                     # Architecture guide with diagrams and patterns
   adr/

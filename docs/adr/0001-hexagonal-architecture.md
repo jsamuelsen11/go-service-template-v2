@@ -124,18 +124,18 @@ flowchart LR
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Platform |
-| Hexagon (`{{...}}`) | Port / interface boundary |
-| Stadium (`([...])`) | System boundary (entry/exit) |
-| Solid arrow (`-->`) | Data / request flow |
-| Dashed arrow (`-.->`) | Dependency or implements |
+| Element                                                         | Meaning                      |
+| --------------------------------------------------------------- | ---------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain                       |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces)           |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application                  |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | Adapters                     |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | External                     |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber  | Platform                     |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary    |
+| Stadium (`([...])`)                                             | System boundary (entry/exit) |
+| Solid arrow (`-->`)                                             | Data / request flow          |
+| Dashed arrow (`-.->`)                                           | Dependency or implements     |
 
 ### Dependency Rule: Always Inward
 
@@ -175,16 +175,16 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
-| Hexagon (`{{...}}`) | Port / interface boundary |
-| Stadium (`([...])`) | System boundary (entry/exit) |
-| Numbered arrows | Dependency direction (always inward) |
+| Element                                                         | Meaning                              |
+| --------------------------------------------------------------- | ------------------------------------ |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain                               |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces)                   |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application                          |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | Adapters                             |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | External                             |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary            |
+| Stadium (`([...])`)                                             | System boundary (entry/exit)         |
+| Numbered arrows                                                 | Dependency direction (always inward) |
 
 ### Anti-Corruption Layer: Containing External Change
 
@@ -222,12 +222,12 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (protected by architecture) |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter layer only) |
-| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | External API change (trigger) |
-| Hexagon (`{{...}}`) | Port / interface boundary |
+| Element                                                        | Meaning                               |
+| -------------------------------------------------------------- | ------------------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime  | Unchanged (protected by architecture) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter layer only)          |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red   | External API change (trigger)         |
+| Hexagon (`{{...}}`)                                            | Port / interface boundary             |
 
 #### Scenario: Swapping Downstream Provider Entirely
 
@@ -267,13 +267,13 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
+| Element                                                       | Meaning                        |
+| ------------------------------------------------------------- | ------------------------------ |
 | ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (app, domain, ports) |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | New provider / ACL |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Old provider (removed) |
-| Dashed arrow (`-.->`) | Replaced dependency |
-| Solid arrow (`-->`) | Active dependency |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | New provider / ACL             |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Old provider (removed)         |
+| Dashed arrow (`-.->`)                                         | Replaced dependency            |
+| Solid arrow (`-->`)                                           | Active dependency              |
 
 ### Flexibility: The Power of Ports & Adapters
 
@@ -335,14 +335,14 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain / unchanged |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | New schema adapter |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Old schema adapter |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface) |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Configuration (selects adapter) |
-| Hexagon (`{{...}}`) | Port / interface boundary |
+| Element                                                         | Meaning                         |
+| --------------------------------------------------------------- | ------------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain / unchanged              |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | New schema adapter              |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | Old schema adapter              |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface)                |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber  | Configuration (selects adapter) |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary       |
 
 #### Flexibility 2: Gradual Domain Evolution
 
@@ -408,12 +408,12 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | v1 (original, unchanged) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | v2 (added) |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | v3 (added) |
-| Hexagon (`{{...}}`) | Port / interface boundary |
+| Element                                                        | Meaning                   |
+| -------------------------------------------------------------- | ------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime  | v1 (original, unchanged)  |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue  | v2 (added)                |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | v3 (added)                |
+| Hexagon (`{{...}}`)                                            | Port / interface boundary |
 
 #### Flexibility 3: Multi-Version External Support
 
@@ -491,15 +491,15 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain (unchanged) |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | v3 beta |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | v2 current |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | v1 legacy |
-| Hexagon (`{{...}}`) | Port / interface boundary |
-| Dashed border | Version-specific adapter group |
+| Element                                                         | Meaning                        |
+| --------------------------------------------------------------- | ------------------------------ |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain (unchanged)             |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface)               |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | v3 beta                        |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | v2 current                     |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | v1 legacy                      |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary      |
+| Dashed border                                                   | Version-specific adapter group |
 
 ### Worst Case: New Business Concepts Required
 
@@ -588,15 +588,15 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | External change (trigger) |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter only) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | New (added) |
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (protected) |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Existing external |
-| Hexagon (`{{...}}`) | Port / interface boundary |
-| Dashed arrow (`-.->`) | Implements / maps to |
+| Element                                                        | Meaning                   |
+| -------------------------------------------------------------- | ------------------------- |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red   | External change (trigger) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter only)    |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue  | New (added)               |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime  | Unchanged (protected)     |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray  | Existing external         |
+| Hexagon (`{{...}}`)                                            | Port / interface boundary |
+| Dashed arrow (`-.->`)                                          | Implements / maps to      |
 
 **Key insight**: Even when external APIs rename fields, change formats, or restructure data
 for _existing_ business concepts, the **ACL absorbs that translation**. The domain only
@@ -725,16 +725,16 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application service |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Downstream services |
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Success path |
-| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | Rollback / error path |
-| Circle (`((...))`) | In-memory storage (cache, queue) |
-| Stadium (`([...])`) | External I/O boundary |
-| Dashed border | Stage boundary |
+| Element                                                        | Meaning                          |
+| -------------------------------------------------------------- | -------------------------------- |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue  | Application service              |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations        |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray  | Downstream services              |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime  | Success path                     |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red   | Rollback / error path            |
+| Circle (`((...))`)                                             | In-memory storage (cache, queue) |
+| Stadium (`([...])`)                                            | External I/O boundary            |
+| Dashed border                                                  | Stage boundary                   |
 
 See [ARCHITECTURE.md > Request Context Pattern](../ARCHITECTURE.md#request-context-pattern) for
 component reference, code examples, and implementation guidance.
@@ -743,25 +743,25 @@ component reference, code examples, and implementation guidance.
 
 ### Positive
 
-| Benefit                  | What it means for the business                                                                                                                                                                             |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Testability**          | Tests only change when business rules change, not when downstream APIs update their format.                                                    |
-| **Flexibility**          | Swap downstream providers, change databases, or run parallel implementations -- business logic stays the same.                                 |
-| **Maintainability**      | Problems in the TODO API? Check the TODO adapter. Problems with progress logic? Check the domain. Clear boundaries eliminate guesswork.         |
-| **Explicit contracts**   | New team members understand integrations by reading port interfaces, not reverse-engineering implementations.                                   |
-| **Change isolation**     | External API changes are absorbed by the ACL translation layer. Team velocity remains unaffected.                                              |
-| **Reduced risk**         | Unpredictable downstream changes don't cascade into weeks of refactoring.                                                                      |
-| **Parallel development** | Once port interfaces are defined, multiple developers can work on different adapters simultaneously.                                            |
-| **Domain stability**     | Even when new business concepts are needed, existing logic stays untouched. You're adding, not rewriting.                                      |
+| Benefit                  | What it means for the business                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Testability**          | Tests only change when business rules change, not when downstream APIs update their format.                                             |
+| **Flexibility**          | Swap downstream providers, change databases, or run parallel implementations -- business logic stays the same.                          |
+| **Maintainability**      | Problems in the TODO API? Check the TODO adapter. Problems with progress logic? Check the domain. Clear boundaries eliminate guesswork. |
+| **Explicit contracts**   | New team members understand integrations by reading port interfaces, not reverse-engineering implementations.                           |
+| **Change isolation**     | External API changes are absorbed by the ACL translation layer. Team velocity remains unaffected.                                       |
+| **Reduced risk**         | Unpredictable downstream changes don't cascade into weeks of refactoring.                                                               |
+| **Parallel development** | Once port interfaces are defined, multiple developers can work on different adapters simultaneously.                                    |
+| **Domain stability**     | Even when new business concepts are needed, existing logic stays untouched. You're adding, not rewriting.                               |
 
 ### Negative
 
-| Tradeoff               | Mitigation                                                                                                                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **More boilerplate**   | AI agents excel at generating repetitive adapter code and DTOs. The pattern's predictability makes it ideal for AI assistance.               |
-| **Learning curve**     | Comprehensive documentation and real examples let new developers follow patterns without deeply understanding the theory first.              |
-| **Indirection**        | Request ID and correlation ID propagated through all layers enable end-to-end tracing when debugging.                                        |
-| **Initial setup cost** | First integration takes longer; subsequent ones follow the established pattern. AI agents can scaffold new integrations in minutes.           |
+| Tradeoff               | Mitigation                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **More boilerplate**   | AI agents excel at generating repetitive adapter code and DTOs. The pattern's predictability makes it ideal for AI assistance.      |
+| **Learning curve**     | Comprehensive documentation and real examples let new developers follow patterns without deeply understanding the theory first.     |
+| **Indirection**        | Request ID and correlation ID propagated through all layers enable end-to-end tracing when debugging.                               |
+| **Initial setup cost** | First integration takes longer; subsequent ones follow the established pattern. AI agents can scaffold new integrations in minutes. |
 
 ### Neutral
 

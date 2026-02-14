@@ -59,6 +59,7 @@ pre-commit:
 
           - name: markdownlint
             glob: "*.md"
+            exclude: "^(\\.beads/.*)$"
             run: npx --yes markdownlint-cli@0.44.0 {staged_files}
 
           - name: shellcheck

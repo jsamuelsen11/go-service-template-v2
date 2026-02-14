@@ -86,18 +86,18 @@ flowchart LR
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Platform |
-| Hexagon (`{{...}}`) | Port / interface boundary |
-| Stadium (`([...])`) | System boundary (entry/exit) |
-| Solid arrow (`-->`) | Data / request flow |
-| Dashed arrow (`-.->`) | Dependency or implements |
+| Element                                                         | Meaning                      |
+| --------------------------------------------------------------- | ---------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain                       |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces)           |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application                  |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | Adapters                     |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | External                     |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber  | Platform                     |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary    |
+| Stadium (`([...])`)                                             | System boundary (entry/exit) |
+| Solid arrow (`-->`)                                             | Data / request flow          |
+| Dashed arrow (`-.->`)                                           | Dependency or implements     |
 
 ### Detailed Component Architecture
 
@@ -175,17 +175,17 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
-| ![#ec4899](https://placehold.co/15x15/ec4899/ec4899.png) Pink | Infrastructure (HTTP client, circuit breaker) |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
-| Stadium (`([...])`) | System boundary (entry/exit) |
-| Solid arrow (`-->`) | Data / request flow |
-| Dashed arrow (`-.->`) | Dependency or implements |
+| Element                                                         | Meaning                                       |
+| --------------------------------------------------------------- | --------------------------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain                                        |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces)                            |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application                                   |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | Adapters                                      |
+| ![#ec4899](https://placehold.co/15x15/ec4899/ec4899.png) Pink   | Infrastructure (HTTP client, circuit breaker) |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | External                                      |
+| Stadium (`([...])`)                                             | System boundary (entry/exit)                  |
+| Solid arrow (`-->`)                                             | Data / request flow                           |
+| Dashed arrow (`-.->`)                                           | Dependency or implements                      |
 
 ### Layer Descriptions
 
@@ -217,11 +217,11 @@ var ErrUnavailable = errors.New("unavailable")
 
 **Interfaces** that define contracts between layers. Ports are the API that the application exposes to adapters.
 
-| File           | Purpose                                                      |
-| -------------- | ------------------------------------------------------------ |
-| `services.go`  | Service port interfaces (implemented by application layer)   |
-| `clients.go`   | Client port interfaces (implemented by outbound adapters)    |
-| `health.go`    | Health check interfaces (`HealthChecker`, `HealthRegistry`)  |
+| File          | Purpose                                                     |
+| ------------- | ----------------------------------------------------------- |
+| `services.go` | Service port interfaces (implemented by application layer)  |
+| `clients.go`  | Client port interfaces (implemented by outbound adapters)   |
+| `health.go`   | Health check interfaces (`HealthChecker`, `HealthRegistry`) |
 
 #### Application Layer (`/internal/app/`)
 
@@ -271,11 +271,11 @@ The **Anti-Corruption Layer** protects the domain from external service represen
 **ACL File Convention**: Prefix all ACL files with the domain name so multiple downstream
 integrations coexist cleanly in the same `acl/` directory:
 
-| File                     | Purpose                                 |
-| ------------------------ | --------------------------------------- |
-| `todo_client.go`         | External client adapter                 |
-| `todo_translator.go`     | DTO → Domain entity translation         |
-| `todo_errors.go`         | HTTP status → Domain error mapping      |
+| File                 | Purpose                            |
+| -------------------- | ---------------------------------- |
+| `todo_client.go`     | External client adapter            |
+| `todo_translator.go` | DTO → Domain entity translation    |
+| `todo_errors.go`     | HTTP status → Domain error mapping |
 
 #### Platform Layer (`/internal/platform/`)
 
@@ -500,16 +500,16 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Shared kernel |
-| Hexagon (`{{...}}`) | Port / interface boundary |
-| Stadium (`([...])`) | System boundary (entry/exit) |
+| Element                                                         | Meaning                      |
+| --------------------------------------------------------------- | ---------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain                       |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces)           |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application                  |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | Adapters                     |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | External                     |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber  | Shared kernel                |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary    |
+| Stadium (`([...])`)                                             | System boundary (entry/exit) |
 
 #### Migration Path
 
@@ -596,15 +596,15 @@ when you're unsure where code belongs.
 
 **Common Gray Areas:**
 
-| Scenario | Layer | Reasoning |
-| -------- | ----- | --------- |
-| Validation needing a DB lookup (e.g. "email must be unique") | Application | Requires I/O via port; domain defines `ErrConflict`, app detects the condition |
-| Multi-entity business rule (e.g. "project can hold N todos") | Domain for the rule, application layer for fetching | `project.CanAddTodo(count)` is a domain method; application layer fetches the count |
-| Business calculation with logging | Domain for the calc, application layer wraps with logging | `CalculateProgress(todos)` is pure; application layer logs before/after |
-| Entity state transitions (e.g. "mark todo complete") | Domain (entity method) | Valid transitions are a business rule |
-| Coordinated state changes across entities | Application | Orchestrates multiple port calls |
+| Scenario                                                     | Layer                                                     | Reasoning                                                                           |
+| ------------------------------------------------------------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Validation needing a DB lookup (e.g. "email must be unique") | Application                                               | Requires I/O via port; domain defines `ErrConflict`, app detects the condition      |
+| Multi-entity business rule (e.g. "project can hold N todos") | Domain for the rule, application layer for fetching       | `project.CanAddTodo(count)` is a domain method; application layer fetches the count |
+| Business calculation with logging                            | Domain for the calc, application layer wraps with logging | `CalculateProgress(todos)` is pure; application layer logs before/after             |
+| Entity state transitions (e.g. "mark todo complete")         | Domain (entity method)                                    | Valid transitions are a business rule                                               |
+| Coordinated state changes across entities                    | Application                                               | Orchestrates multiple port calls                                                    |
 
-**Example: Validation with External Dependency**
+#### Example: Validation with External Dependency
 
 ```go
 // ❌ WRONG - Domain layer calling infrastructure
@@ -636,7 +636,7 @@ func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
 }
 ```
 
-**Example: Multi-Entity Business Rule**
+#### Example: Multi-Entity Business Rule
 
 ```go
 // ❌ WRONG - Business rule lives in the application layer
@@ -683,12 +683,12 @@ func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
 
 **Anti-Patterns to Avoid:**
 
-| Anti-Pattern | Why It's Wrong | Fix |
-| ------------ | -------------- | --- |
-| Domain service calls a port | Domain depends on infrastructure | Move to application layer |
-| Application layer contains inline business rules | Logic coupled to orchestration, harder to test | Extract to domain entity method or domain service |
-| Entity method accepts a logger | Domain polluted with infrastructure | Log in application layer before/after calling domain |
-| Application layer re-implements entity validation | Validation logic drifts, tested in two places | Call the entity's `Validate()` method instead |
+| Anti-Pattern                                      | Why It's Wrong                                 | Fix                                                  |
+| ------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------- |
+| Domain service calls a port                       | Domain depends on infrastructure               | Move to application layer                            |
+| Application layer contains inline business rules  | Logic coupled to orchestration, harder to test | Extract to domain entity method or domain service    |
+| Entity method accepts a logger                    | Domain polluted with infrastructure            | Log in application layer before/after calling domain |
+| Application layer re-implements entity validation | Validation logic drifts, tested in two places  | Call the entity's `Validate()` method instead        |
 
 #### Orchestration Patterns
 
@@ -1049,16 +1049,16 @@ flowchart TB
 
 **Legend:**
 
-| Element | Meaning |
-|---------|---------|
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application service |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Downstream services |
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Success path |
-| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | Rollback / error path |
-| Circle (`((...))`) | In-memory storage (cache, queue) |
-| Stadium (`([...])`) | External I/O boundary |
-| Dashed border | Stage boundary |
+| Element                                                        | Meaning                          |
+| -------------------------------------------------------------- | -------------------------------- |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue  | Application service              |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations        |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray  | Downstream services              |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime  | Success path                     |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red   | Rollback / error path            |
+| Circle (`((...))`)                                             | In-memory storage (cache, queue) |
+| Stadium (`([...])`)                                            | External I/O boundary            |
+| Dashed border                                                  | Stage boundary                   |
 
 **`DataProvider` Interface:**
 
@@ -1111,7 +1111,7 @@ rc.AddGroup(
 - **Parallel rollback**: If any action in a group fails, in-progress actions are cancelled
   via context cancellation, then all completed actions roll back in reverse group order.
 
-**Example: Todo Completion Saga**
+#### Example: Todo Completion Saga
 
 This example shows all three stages working together -- fetch with memoization, stage
 writes, then commit with automatic rollback on failure:
@@ -1547,7 +1547,7 @@ func (c APICredentials) LogValue() slog.Value {
 
 Now `slog.Any("creds", creds)` automatically redacts -- no discipline required at log call sites.
 
-**Pattern: Redacting Middleware for HTTP Headers**
+#### Pattern: Redacting Middleware for HTTP Headers
 
 Redact sensitive headers before they reach the structured logger:
 
@@ -1680,13 +1680,13 @@ func main() {
 
 ### Why `samber/do`?
 
-| Advantage               | Description                                                              |
-| ----------------------- | ------------------------------------------------------------------------ |
-| **Type-safe generics**  | Uses Go 1.18+ generics -- no reflection, no `interface{}` assertions     |
-| **Explicit**            | Provider functions are readable; wiring order is clear                   |
-| **Scoped injectors**    | Create child scopes for multi-domain isolation and testing               |
-| **Single dependency**   | One package, no transitive dependencies                                  |
-| **Lifecycle support**   | Shutdown hooks for graceful cleanup of connections and resources          |
+| Advantage              | Description                                                          |
+| ---------------------- | -------------------------------------------------------------------- |
+| **Type-safe generics** | Uses Go 1.18+ generics -- no reflection, no `interface{}` assertions |
+| **Explicit**           | Provider functions are readable; wiring order is clear               |
+| **Scoped injectors**   | Create child scopes for multi-domain isolation and testing           |
+| **Single dependency**  | One package, no transitive dependencies                              |
+| **Lifecycle support**  | Shutdown hooks for graceful cleanup of connections and resources     |
 
 ---
 
@@ -1696,10 +1696,10 @@ For architectural decisions and their rationale (hexagonal architecture, `samber
 
 **Implementation choices** not covered by ADR-0001:
 
-| Choice | Why |
-|--------|-----|
-| **slog** for structured logging | Standard library (Go 1.21+), zero dependencies, JSON for production, text for development. Logger injected via constructor. |
-| **OpenTelemetry** for observability | Vendor-neutral tracing and metrics standard. Supports multiple backends (Jaeger, Prometheus, etc.). |
+| Choice                              | Why                                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **slog** for structured logging     | Standard library (Go 1.21+), zero dependencies, JSON for production, text for development. Logger injected via constructor. |
+| **OpenTelemetry** for observability | Vendor-neutral tracing and metrics standard. Supports multiple backends (Jaeger, Prometheus, etc.).                         |
 
 ---
 
