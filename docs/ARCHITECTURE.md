@@ -84,12 +84,20 @@ flowchart LR
     class PLT platform
 ```
 
-| Arrow/Shape         | Meaning                               |
-| ------------------- | ------------------------------------- |
-| Solid (`-->`)       | Data/request flow                     |
-| Dashed (`-.->`)     | Dependency or implements relationship |
-| Hexagon `{{...}}`   | Interface/port                        |
-| Stadium `([...])`   | Entry/exit point (system boundary)    |
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Platform |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Stadium (`([...])`) | System boundary (entry/exit) |
+| Solid arrow (`-->`) | Data / request flow |
+| Dashed arrow (`-.->`) | Dependency or implements |
 
 ### Detailed Component Architecture
 
@@ -164,6 +172,20 @@ flowchart TB
     class CB,Retry,InfraOTEL infra
     class HTTP,ExtAPI external
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
+| ![#ec4899](https://placehold.co/15x15/ec4899/ec4899.png) Pink | Infrastructure (HTTP client, circuit breaker) |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
+| Stadium (`([...])`) | System boundary (entry/exit) |
+| Solid arrow (`-->`) | Data / request flow |
+| Dashed arrow (`-.->`) | Dependency or implements |
 
 ### Layer Descriptions
 
@@ -475,6 +497,19 @@ flowchart TB
     class HTTP external
     class Priority shared
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Shared kernel |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Stadium (`([...])`) | System boundary (entry/exit) |
 
 #### Migration Path
 
@@ -1005,6 +1040,19 @@ flowchart TB
     style phase1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
     style phase2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application service |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Downstream services |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Success path |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | Rollback / error path |
+| Circle (`((...))`) | In-memory storage (cache, queue) |
+| Stadium (`([...])`) | External I/O boundary |
+| Dashed border | Phase boundary |
 
 **`DataProvider` Interface:**
 

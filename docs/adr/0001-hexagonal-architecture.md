@@ -122,6 +122,21 @@ flowchart LR
     class PLT platform
 ```
 
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Platform |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Stadium (`([...])`) | System boundary (entry/exit) |
+| Solid arrow (`-->`) | Data / request flow |
+| Dashed arrow (`-.->`) | Dependency or implements |
+
 ### Dependency Rule: Always Inward
 
 ```mermaid
@@ -158,6 +173,19 @@ flowchart TB
     class Entity domain
 ```
 
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | Adapters |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | External |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Stadium (`([...])`) | System boundary (entry/exit) |
+| Numbered arrows | Dependency direction (always inward) |
+
 ### Anti-Corruption Layer: Containing External Change
 
 The ACL acts as a protective boundary. When downstream services change, the impact is **contained to the adapter layer**.
@@ -191,6 +219,15 @@ flowchart TB
     class Client,DTO,Translator changed
     class API external
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (protected by architecture) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter layer only) |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | External API change (trigger) |
+| Hexagon (`{{...}}`) | Port / interface boundary |
 
 #### Scenario: Swapping Downstream Provider Entirely
 
@@ -227,6 +264,16 @@ flowchart TB
     style Domain fill:#84cc16,stroke:#65a30d,color:#fff
     style Ports fill:#84cc16,stroke:#65a30d,color:#fff
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (app, domain, ports) |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | New provider / ACL |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Old provider (removed) |
+| Dashed arrow (`-.->`) | Replaced dependency |
+| Solid arrow (`-->`) | Active dependency |
 
 ### Flexibility: The Power of Ports & Adapters
 
@@ -285,6 +332,17 @@ flowchart TB
     style Entity fill:#84cc16,stroke:#65a30d,color:#fff
     style Cfg fill:#f59e0b,stroke:#d97706,color:#fff
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain / unchanged |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | New schema adapter |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Old schema adapter |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Configuration (selects adapter) |
+| Hexagon (`{{...}}`) | Port / interface boundary |
 
 #### Flexibility 2: Gradual Domain Evolution
 
@@ -347,6 +405,15 @@ flowchart TB
     style LoyaltyPort fill:#f59e0b,stroke:#d97706,color:#fff
     style LoyaltySvc fill:#f59e0b,stroke:#d97706,color:#fff
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | v1 (original, unchanged) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | v2 (added) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | v3 (added) |
+| Hexagon (`{{...}}`) | Port / interface boundary |
 
 #### Flexibility 3: Multi-Version External Support
 
@@ -421,6 +488,18 @@ flowchart TB
     style Port fill:#a855f7,stroke:#9333ea,color:#fff
     style Entity fill:#84cc16,stroke:#65a30d,color:#fff
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Domain (unchanged) |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | v3 beta |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal | v2 current |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | v1 legacy |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Dashed border | Version-specific adapter group |
 
 ### Worst Case: New Business Concepts Required
 
@@ -639,6 +718,19 @@ flowchart TB
     style phase1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
     style phase2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | Application service |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Downstream services |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Success path |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | Rollback / error path |
+| Circle (`((...))`) | In-memory storage (cache, queue) |
+| Stadium (`([...])`) | External I/O boundary |
+| Dashed border | Phase boundary |
 
 See [ARCHITECTURE.md > Request Context Pattern](../ARCHITECTURE.md#request-context-pattern) for
 component reference, code examples, and implementation guidance.
