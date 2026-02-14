@@ -584,21 +584,19 @@ flowchart TB
     style CliPort fill:#84cc16,stroke:#65a30d,color:#fff
     style SvcPort fill:#84cc16,stroke:#65a30d,color:#fff
 
-    subgraph legend["Legend"]
-        L0["⚫ Existing external"]
-        L1["🔴 External change"]
-        L2["🟡 Updated (adapter only)"]
-        L3["🔵 New (added)"]
-        L4["🟢 Unchanged (protected)"]
-    end
-
-    style L0 fill:#64748b,stroke:#475569,color:#fff
-    style L1 fill:#ef4444,stroke:#dc2626,color:#fff
-    style L2 fill:#f59e0b,stroke:#d97706,color:#fff
-    style L3 fill:#0ea5e9,stroke:#0284c7,color:#fff
-    style L4 fill:#84cc16,stroke:#65a30d,color:#fff
-    style legend fill:none,stroke:#d1d5db
 ```
+
+**Legend:**
+
+| Element | Meaning |
+|---------|---------|
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | External change (trigger) |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter only) |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue | New (added) |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime | Unchanged (protected) |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray | Existing external |
+| Hexagon (`{{...}}`) | Port / interface boundary |
+| Dashed arrow (`-.->`) | Implements / maps to |
 
 **Key insight**: Even when external APIs rename fields, change formats, or restructure data
 for _existing_ business concepts, the **ACL absorbs that translation**. The domain only
