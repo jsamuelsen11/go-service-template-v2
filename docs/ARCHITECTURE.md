@@ -5,48 +5,22 @@ This document describes the architecture of the Go Service Template, which imple
 ## Table of Contents
 
 - [Architecture](#architecture)
-  - [Table of Contents](#table-of-contents)
   - [Introduction](#introduction)
-  - [Acronyms \& Glossary](#acronyms--glossary)
   - [Architecture Overview](#architecture-overview)
     - [High-Level Layer Structure](#high-level-layer-structure)
     - [Detailed Component Architecture](#detailed-component-architecture)
     - [Layer Descriptions](#layer-descriptions)
-      - [Domain Layer (`/internal/domain/`)](#domain-layer-internaldomain)
-      - [Ports Layer (`/internal/ports/`)](#ports-layer-internalports)
-      - [Application Layer (`/internal/app/`)](#application-layer-internalapp)
-      - [Adapters Layer (`/internal/adapters/`)](#adapters-layer-internaladapters)
-      - [Platform Layer (`/internal/platform/`)](#platform-layer-internalplatform)
     - [Scaling to Multiple Domains](#scaling-to-multiple-domains)
     - [Domain-Driven Design Concepts](#domain-driven-design-concepts)
-      - [Use Cases vs Domain Services](#use-cases-vs-domain-services)
-      - [Orchestration Patterns](#orchestration-patterns)
-      - [Transaction Management with Saga Pattern](#transaction-management-with-saga-pattern)
-      - [Aggregate Boundaries for API Call Grouping](#aggregate-boundaries-for-api-call-grouping)
     - [Domain Extensibility Patterns](#domain-extensibility-patterns)
-      - [Multiple Bounded Contexts](#multiple-bounded-contexts)
-      - [Entity Type Hierarchies (Composition-Based)](#entity-type-hierarchies-composition-based)
-      - [Plugin/Strategy Patterns with Interfaces](#pluginstrategy-patterns-with-interfaces)
-      - [Extensibility Decision Guide](#extensibility-decision-guide)
     - [Context](#context)
+    - [Request Context Pattern](#request-context-pattern)
   - [Middleware Pipeline](#middleware-pipeline)
-    - [Inbound Middleware (HTTP Server)](#inbound-middleware-http-server)
-    - [Outbound Middleware (HTTP Client)](#outbound-middleware-http-client)
   - [Downstream Client Infrastructure](#downstream-client-infrastructure)
-    - [Circuit Breaker States](#circuit-breaker-states)
-    - [Retry with Exponential Backoff](#retry-with-exponential-backoff)
-    - [Error Translation (ACL)](#error-translation-acl)
   - [Observability](#observability)
-    - [Distributed Tracing](#distributed-tracing)
-    - [Metrics](#metrics)
-    - [Structured Logging](#structured-logging)
   - [Dependency Injection](#dependency-injection)
-    - [Wiring Flow](#wiring-flow)
-    - [Why `samber/do`?](#why-samberdo)
   - [Key Design Decisions](#key-design-decisions)
   - [References](#references)
-    - [Internal Documentation](#internal-documentation)
-    - [External Resources](#external-resources)
 
 ---
 
@@ -59,18 +33,6 @@ isolates the core business logic from external concerns. The key benefits are:
 - **Flexibility**: Swap implementations (databases, APIs) without changing business logic. Safely evolve data
   entities and structures with changes isolated to specific layers.
 - **Maintainability**: Clear boundaries prevent coupling between layers
-
----
-
-## Acronyms & Glossary
-
-| Acronym  | Full Name             | Description                                                                                                                          |
-| -------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **ACL**  | Anti-Corruption Layer | Pattern that translates between external service formats and domain types, preventing external concepts from leaking into the domain |
-| **DI**   | Dependency Injection  | Technique for providing dependencies to components via constructors rather than creating them internally                             |
-| **DTO**  | Data Transfer Object  | Simple object for transferring data between layers or services, with no business logic                                               |
-| **DDD**  | Domain-Driven Design  | Software design approach that focuses on modeling the business domain and its rules                                                  |
-| **OTEL** | OpenTelemetry         | Vendor-neutral observability framework for tracing, metrics, and logging                                                             |
 
 ---
 
@@ -121,18 +83,6 @@ flowchart LR
     class DOM domain
     class PLT platform
 ```
-
-**Legend:**
-
-| Layer       | Color Sample                                             | Hex Code  | Description                                                                           |
-| ----------- | -------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------- |
-| External    | ![#64748b](https://placehold.co/15x15/64748b/64748b.png) | `#64748b` | HTTP clients (inbound) and downstream services (outbound)                             |
-| Adapters    | ![#10b981](https://placehold.co/15x15/10b981/10b981.png) | `#10b981` | Inbound (HTTP handlers) and Outbound (ACL clients)                                    |
-| Application | ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) | `#0ea5e9` | Application services, use case orchestration                                          |
-| Ports       | ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) | `#a855f7` | Service Ports (implemented by Application) and Client Ports (implemented by Adapters) |
-| Domain      | ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) | `#84cc16` | Domain services, entities, domain errors                                              |
-| Platform    | ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) | `#f59e0b` | Config, logging, telemetry (cross-cutting, used by all layers)                        |
-| Client Infra| ![#ec4899](https://placehold.co/15x15/ec4899/ec4899.png) | `#ec4899` | Circuit breaker, retry, OpenTelemetry (outbound resilience)                           |
 
 | Arrow/Shape         | Meaning                               |
 | ------------------- | ------------------------------------- |
@@ -215,16 +165,6 @@ flowchart TB
     class HTTP,ExtAPI external
 ```
 
-*See [color and shape legend](#high-level-layer-structure) above.*
-
-**Key Principles:**
-
-| Principle                 | Description                                                                               |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| **Dependency Inversion**  | High-level modules don't depend on low-level modules; both depend on abstractions (ports) |
-| **Interface Segregation** | Small, focused interfaces rather than large, general-purpose ones                         |
-| **Single Responsibility** | Each layer has one reason to change                                                       |
-
 ### Layer Descriptions
 
 #### Domain Layer (`/internal/domain/`)
@@ -260,13 +200,6 @@ var ErrUnavailable = errors.New("unavailable")
 | `services.go`  | Service port interfaces (implemented by application layer)   |
 | `clients.go`   | Client port interfaces (implemented by outbound adapters)    |
 | `health.go`    | Health check interfaces (`HealthChecker`, `HealthRegistry`)  |
-
-**Port Design Principles:**
-
-1. Context as first parameter (always)
-2. Return domain types, never external DTOs
-3. Use domain error types
-4. Interface Segregation: keep interfaces small and focused
 
 #### Application Layer (`/internal/app/`)
 
@@ -352,9 +285,7 @@ Consider splitting into multiple domains when:
 > **Warning**: Don't prematurely split. Start with a single domain and extract when
 > complexity demands it.
 
-#### Directory Structure Options
-
-##### Option 1: Domain-Centric Organization (Recommended)
+#### Directory Structure
 
 Organize by domain first, then by layer within each domain:
 
@@ -395,36 +326,6 @@ internal/
 │       └── project/        # Project external client adapters
 └── platform/               # Remains flat (cross-cutting)
 ```
-
-**Advantages**: Clear domain boundaries visible in directory structure. Easy to locate all
-code related to a specific domain. Aligns with DDD bounded context thinking.
-
-##### Option 2: Layer-Centric Organization
-
-Keep the existing flat structure but use naming conventions:
-
-```text
-internal/
-├── domain/
-│   ├── todo.go
-│   ├── todo_errors.go
-│   ├── project.go
-│   ├── project_membership.go
-│   └── project_errors.go
-├── ports/
-│   ├── todo_services.go
-│   └── project_services.go
-├── app/
-│   ├── todo_service.go
-│   └── project_service.go
-└── adapters/http/handlers/
-    ├── todo.go
-    └── project.go
-```
-
-**Advantages**: Simpler for small services (2-3 domains). Less directory nesting.
-
-**When to use**: When you have few domains and prefer simplicity over explicit boundaries.
 
 #### Cross-Domain Communication
 
@@ -493,35 +394,12 @@ consistency and better fault isolation.
 
 #### Shared Kernel Pattern
 
-When domains need common types (value objects, shared identifiers), create a shared kernel:
-
-```go
-// domain/shared/money.go
-package shared
-
-import "errors"
-
-// Money represents a monetary value with currency.
-// This is a value object shared across domains.
-type Money struct {
-    Amount   int64  // In smallest currency unit (cents)
-    Currency string // ISO 4217 code
-}
-
-func (m Money) Add(other Money) (Money, error) {
-    if m.Currency != other.Currency {
-        return Money{}, errors.New("currency mismatch")
-    }
-    return Money{Amount: m.Amount + other.Amount, Currency: m.Currency}, nil
-}
-```
-
-**Rules for shared kernel**:
+When domains need common types (value objects, shared identifiers), place them in
+`domain/shared/`. Keep the shared kernel minimal:
 
 - Only value objects and simple types
 - No entities or services
 - Changes require agreement from all consuming domains
-- Keep it minimal
 
 #### Domain Boundary Visualization
 
@@ -598,16 +476,6 @@ flowchart TB
     class Priority shared
 ```
 
-#### Decision Guide: When to Split
-
-| Signal                                  | Action                                         |
-| --------------------------------------- | ---------------------------------------------- |
-| Single entity file > 500 lines          | Consider extracting sub-entities               |
-| Multiple unrelated use cases in one svc | Split into separate application services       |
-| Circular dependencies between files     | Extract shared concepts or introduce ports     |
-| Team conflicts on same files            | Align domain boundaries with team ownership    |
-| Different deployment requirements       | Consider separate services (beyond this guide) |
-
 #### Migration Path
 
 To migrate from single domain to multiple domains:
@@ -680,6 +548,113 @@ func CalculateProjectProgress(todos []Todo) int {
 }
 ```
 
+#### Placing Logic: Domain vs Application Layer
+
+The distinction between "orchestration" and "business logic" can be subtle. Use this guide
+when you're unsure where code belongs.
+
+**Decision Heuristic:**
+
+1. Does this logic require I/O (database, API call, external service)? → **Application Layer**
+2. Is it a pure business rule or calculation with no dependencies? → **Domain Layer**
+3. Does it coordinate multiple domain operations via ports? → **Application Layer**
+
+**Common Gray Areas:**
+
+| Scenario | Layer | Reasoning |
+| -------- | ----- | --------- |
+| Validation needing a DB lookup (e.g. "email must be unique") | Application | Requires I/O via port; domain defines `ErrConflict`, app detects the condition |
+| Multi-entity business rule (e.g. "project can hold N todos") | Domain for the rule, Application for fetching | `project.CanAddTodo(count)` is a domain method; app fetches the count |
+| Business calculation with logging | Domain for the calc, Application wraps with logging | `CalculateProgress(todos)` is pure; app logs before/after |
+| Entity state transitions (e.g. "mark todo complete") | Domain (entity method) | Valid transitions are a business rule |
+| Coordinated state changes across entities | Application | Orchestrates multiple port calls |
+
+**Example: Validation with External Dependency**
+
+```go
+// ❌ WRONG - Domain layer calling infrastructure
+// internal/domain/todo.go
+func (t *Todo) ValidateUnique(ctx context.Context, repo TodoRepository) error {
+    existing, _ := repo.GetByTitle(ctx, t.Title) // Domain depends on I/O!
+    if existing != nil {
+        return ErrConflict
+    }
+    return nil
+}
+
+// ✅ RIGHT - App orchestrates, domain defines rules and errors
+// internal/app/todo_service.go
+func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
+    if err := todo.Validate(); err != nil { // Domain: pure validation
+        return err
+    }
+
+    existing, err := s.todoClient.GetByTitle(ctx, todo.Title) // App: I/O via port
+    if err != nil && !errors.Is(err, domain.ErrNotFound) {
+        return err
+    }
+    if existing != nil {
+        return domain.ErrConflict // Domain: defines the error type
+    }
+
+    return s.todoClient.Create(ctx, todo)
+}
+```
+
+**Example: Multi-Entity Business Rule**
+
+```go
+// ❌ WRONG - Business rule lives in application layer
+// internal/app/todo_service.go
+func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
+    project, _ := s.projectClient.GetByID(ctx, todo.ProjectID)
+    todos, _ := s.todoClient.ListByProject(ctx, todo.ProjectID)
+
+    if len(todos) >= project.MaxTodos { // Business rule in app layer!
+        return domain.ErrValidation
+    }
+
+    return s.todoClient.Create(ctx, todo)
+}
+
+// ✅ RIGHT - Domain owns the rule, app orchestrates data fetching
+// internal/domain/project.go
+func (p *Project) CanAddTodo(currentCount int) error {
+    if currentCount >= p.MaxTodos {
+        return fmt.Errorf("project at capacity (%d/%d): %w", currentCount, p.MaxTodos, ErrValidation)
+    }
+    return nil
+}
+
+// internal/app/todo_service.go
+func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
+    project, err := s.projectClient.GetByID(ctx, todo.ProjectID)
+    if err != nil {
+        return err
+    }
+
+    todos, err := s.todoClient.ListByProject(ctx, todo.ProjectID)
+    if err != nil {
+        return err
+    }
+
+    if err := project.CanAddTodo(len(todos)); err != nil { // Domain rule
+        return err
+    }
+
+    return s.todoClient.Create(ctx, todo)
+}
+```
+
+**Anti-Patterns to Avoid:**
+
+| Anti-Pattern | Why It's Wrong | Fix |
+| ------------ | -------------- | --- |
+| Domain service calls a port | Domain depends on infrastructure | Move to application layer |
+| App layer contains inline business rules | Logic coupled to orchestration, harder to test | Extract to domain entity method or domain service |
+| Entity method accepts a logger | Domain polluted with infrastructure | Log in application layer before/after calling domain |
+| App layer re-implements entity validation | Validation logic drifts, tested in two places | Call the entity's `Validate()` method instead |
+
 #### Orchestration Patterns
 
 Application services coordinate multiple operations using two patterns:
@@ -749,57 +724,6 @@ func (s *DashboardService) GetDashboard(ctx context.Context, projectID string) (
     return &Dashboard{Project: project, Todos: todos}, nil
 }
 ```
-
-#### Transaction Management with Saga Pattern
-
-For operations that must succeed or fail together across multiple services,
-use the Saga pattern with compensating actions.
-
-**Location:** `/internal/app/context/`
-
-```go
-// Action interface from internal/app/context/actions.go
-type Action interface {
-    Execute(ctx context.Context) error
-    Rollback(ctx context.Context) error
-    Description() string
-}
-```
-
-##### Example: Todo Completion Saga
-
-```go
-func (s *CompletionService) CompleteTodoWithEffects(ctx context.Context, todoID int64) error {
-    rc := appctx.New(ctx)
-
-    // Phase 1: Fetch data with memoization
-    todo, err := rc.GetOrFetch("todo:"+fmt.Sprint(todoID), func(ctx context.Context) (any, error) {
-        return s.todoClient.GetByID(ctx, todoID)
-    })
-    if err != nil {
-        return err
-    }
-
-    // Phase 2: Stage compensating actions
-    _ = rc.AddAction(&MarkTodoDoneAction{TodoID: todoID})
-    _ = rc.AddAction(&UpdateProjectProgressAction{ProjectID: todo.(*Todo).ProjectID})
-    _ = rc.AddAction(&SendCompletionNotificationAction{TodoID: todoID})
-
-    // Execute all or rollback on failure
-    return rc.Commit(ctx)
-}
-```
-
-**Saga Rollback Flow:**
-
-```text
-Execute: MarkTodoDone → UpdateProjectProgress → SendNotification (FAILS)
-Rollback: ← UpdateProjectProgress ← MarkTodoDone
-```
-
-On failure, `Commit()` automatically rolls back executed actions in reverse order.
-<!-- TODO: Create playbook/using-request-context.md after Go code scaffolding, then update this link -->
-See Using Request Context (planned -- will be created alongside the Go implementation).
 
 #### Aggregate Boundaries for API Call Grouping
 
@@ -876,70 +800,6 @@ internal/
 - Shared kernel contains only value objects used across contexts
 - Contexts communicate through application layer, not directly
 
-#### Entity Type Hierarchies (Composition-Based)
-
-Go favors composition over inheritance. For entity type variations:
-
-##### Embedded Common Fields
-
-```go
-// Base fields embedded in specific types
-type BaseEntity struct {
-    ID        string
-    CreatedAt time.Time
-    UpdatedAt time.Time
-    Version   int
-}
-
-type Todo struct {
-    BaseEntity              // Embedded
-    Title           string
-    Description     string
-    Status          TodoStatus
-    ProgressPercent int64
-}
-
-type Project struct {
-    BaseEntity           // Embedded
-    Name        string
-    Description string
-    Status      ProjectStatus
-    OwnerID     string
-}
-```
-
-##### Type Field with Behavior Switch
-
-```go
-type Notification struct {
-    ID      string
-    Type    NotificationType
-    Payload any
-}
-
-type NotificationType string
-
-const (
-    NotificationEmail NotificationType = "email"
-    NotificationSMS   NotificationType = "sms"
-    NotificationPush  NotificationType = "push"
-)
-
-// Behavior varies by type
-func (n *Notification) Send(ctx context.Context, sender NotificationSender) error {
-    switch n.Type {
-    case NotificationEmail:
-        return sender.SendEmail(ctx, n.Payload.(*EmailPayload))
-    case NotificationSMS:
-        return sender.SendSMS(ctx, n.Payload.(*SMSPayload))
-    case NotificationPush:
-        return sender.SendPush(ctx, n.Payload.(*PushPayload))
-    default:
-        return fmt.Errorf("unknown notification type: %s", n.Type)
-    }
-}
-```
-
 #### Plugin/Strategy Patterns with Interfaces
 
 For behavior that varies at runtime, use interfaces:
@@ -990,20 +850,6 @@ func (s *TodoService) ProcessTodo(ctx context.Context, todo *domain.Todo) error 
 > entities, different downstream APIs, or different team ownership, follow the migration path
 > in [Scaling to Multiple Domains](#scaling-to-multiple-domains).
 
-##### Strategy Pattern Example: Payment Processing
-
-```go
-// ports/payment.go
-type PaymentProcessor interface {
-    Charge(ctx context.Context, amount Money, source PaymentSource) (*Charge, error)
-    Refund(ctx context.Context, chargeID string) error
-}
-
-// Multiple implementations can exist:
-// - adapters/payments/stripe.go
-// - adapters/payments/paypal.go
-```
-
 ##### Plugin Pattern Example: Feature Flags
 
 ```go
@@ -1043,16 +889,6 @@ do.Provide(injector, func(i do.Injector) (ports.FeatureFlags, error) {
     }
 })
 ```
-
-#### Extensibility Decision Guide
-
-| Need                          | Pattern             | Example          |
-| ----------------------------- | ------------------- | ---------------- |
-| Different behavior per type   | Type field + switch | NotificationType |
-| Shared fields across entities | Embedded struct     | BaseEntity       |
-| Swappable implementations     | Interface + DI      | PaymentProcessor |
-| Runtime behavior selection    | Strategy pattern    | FeatureFlags     |
-| Growing domain complexity     | Bounded contexts    | todos/, projects/ |
 
 ### Context
 
@@ -1121,6 +957,55 @@ See [ADR-0001](./adr/0001-hexagonal-architecture.md#request-context-pattern-for-
 | `DataProvider`   | Interface for type-safe data fetching (see below)      |
 | `Action`         | Interface for staged write operations (see below)      |
 
+```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
+flowchart TB
+    AppSvc["Application Service"]
+
+    subgraph rc["RequestContext"]
+        subgraph phase1["Phase 1: Read (GetOrFetch)"]
+            GOF["GetOrFetch(key, fetchFn)"]
+            Cache[("In-Memory Cache")]
+            GOF -->|"cache miss"| FetchFn["fetchFn() via Port"]
+            FetchFn -->|"store result"| Cache
+            GOF -->|"cache hit"| Cache
+        end
+
+        subgraph phase2["Phase 2: Write (AddAction / Commit)"]
+            AddAct["AddAction()"]
+            Queue[("Action Queue<br/>[]Action")]
+            AddAct -->|"stage"| Queue
+            Commit["Commit()"]
+            Queue -->|"execute in order"| Commit
+        end
+    end
+
+    Downstream(["Downstream Services"])
+    FetchFn -->|"HTTP call"| Downstream
+
+    AppSvc -->|"① fetch data"| GOF
+    Cache -->|"return cached"| AppSvc
+    AppSvc -->|"② stage writes"| AddAct
+    AppSvc -->|"③ execute all"| Commit
+
+    Commit -->|"all succeed"| Success["Return nil"]
+    Commit -->|"action fails"| Rollback["Rollback in<br/>reverse order"]
+
+    style AppSvc fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style GOF fill:#f59e0b,stroke:#d97706,color:#fff
+    style Cache fill:#f59e0b,stroke:#d97706,color:#fff
+    style FetchFn fill:#f59e0b,stroke:#d97706,color:#fff
+    style AddAct fill:#f59e0b,stroke:#d97706,color:#fff
+    style Queue fill:#f59e0b,stroke:#d97706,color:#fff
+    style Commit fill:#f59e0b,stroke:#d97706,color:#fff
+    style Downstream fill:#64748b,stroke:#475569,color:#fff
+    style Success fill:#84cc16,stroke:#65a30d,color:#fff
+    style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
+    style rc fill:none,stroke:#d97706,stroke-width:2px
+    style phase1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style phase2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+```
+
 **`DataProvider` Interface:**
 
 ```go
@@ -1171,6 +1056,67 @@ rc.AddGroup(
 
 - **Parallel rollback**: If any action in a group fails, in-progress actions are cancelled
   via context cancellation, then all completed actions roll back in reverse group order.
+
+**Example: Todo Completion Saga**
+
+This example shows both phases working together -- fetch with memoization, then stage
+writes with automatic rollback on failure:
+
+```go
+func (s *CompletionService) CompleteTodoWithEffects(ctx context.Context, todoID int64) error {
+    rc := appctx.New(ctx)
+
+    // Phase 1: Fetch data with memoization
+    todo, err := rc.GetOrFetch("todo:"+fmt.Sprint(todoID), func(ctx context.Context) (any, error) {
+        return s.todoClient.GetByID(ctx, todoID)
+    })
+    if err != nil {
+        return err
+    }
+
+    // Phase 2: Stage compensating actions
+    _ = rc.AddAction(&MarkTodoDoneAction{TodoID: todoID})
+    _ = rc.AddAction(&UpdateProjectProgressAction{ProjectID: todo.(*Todo).ProjectID})
+    _ = rc.AddAction(&SendCompletionNotificationAction{TodoID: todoID})
+
+    // Execute all or rollback on failure
+    return rc.Commit(ctx)
+}
+```
+
+On failure, `Commit()` automatically rolls back executed actions in reverse order:
+
+```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
+flowchart LR
+    subgraph execute["Commit() → Execute in order"]
+        direction LR
+        A1["① MarkTodoDone"]
+        A2["② UpdateProjectProgress"]
+        A3["③ SendNotification"]
+        A1 -->|"✅"| A2
+        A2 -->|"✅"| A3
+        A3 -->|"❌ FAILS"| Fail(("Error"))
+    end
+
+    subgraph rollback["Rollback ← Reverse order"]
+        direction RL
+        R2["② Rollback<br/>UpdateProjectProgress"]
+        R1["① Rollback<br/>MarkTodoDone"]
+        R2 -->|"undo"| R1
+    end
+
+    Fail -->|"triggers"| R2
+
+    style A1 fill:#84cc16,stroke:#65a30d,color:#fff
+    style A2 fill:#84cc16,stroke:#65a30d,color:#fff
+    style A3 fill:#ef4444,stroke:#dc2626,color:#fff
+    style Fail fill:#ef4444,stroke:#dc2626,color:#fff
+    style R2 fill:#f59e0b,stroke:#d97706,color:#fff
+    style R1 fill:#f59e0b,stroke:#d97706,color:#fff
+    style execute fill:none,stroke:#84cc16
+    style rollback fill:none,stroke:#f59e0b
+```
 
 **When to use:**
 
@@ -1519,29 +1465,10 @@ All logs use structured JSON format with consistent fields:
 }
 ```
 
-**Log Levels:**
-
-| Level   | Usage                                              |
-| ------- | -------------------------------------------------- |
-| `TRACE` | Verbose external call debugging (custom level)     |
-| `DEBUG` | Detailed debugging information                     |
-| `INFO`  | Normal operational messages                        |
-| `WARN`  | Warning conditions (circuit breaker state changes) |
-| `ERROR` | Error conditions requiring attention               |
-
 #### Secret Redaction
 
 Sensitive data must never appear in logs, error messages, or API responses. Use Go's `slog.LogValuer`
-interface to redact fields at the source.
-
-**What to Redact:**
-
-| Category        | Examples                                         |
-| --------------- | ------------------------------------------------ |
-| **Credentials** | API keys, tokens, passwords, client secrets      |
-| **PII**         | Email addresses, phone numbers, IP addresses     |
-| **Financial**   | Credit card numbers, bank accounts               |
-| **Internal**    | Database connection strings, internal hostnames  |
+interface to redact fields at the source:
 
 **Pattern: `slog.LogValuer` on Domain Types**
 
@@ -1633,8 +1560,8 @@ func TestAPICredentials_LogValue(t *testing.T) {
 ```
 
 For comprehensive logging guidelines including level selection, layer-specific patterns,
-<!-- TODO: Create LOGGING.md after Go code scaffolding, then update this link -->
-file rotation, and ACL trace logging, see LOGGING.md (planned).
+file rotation, and ACL trace logging, a dedicated LOGGING.md will be created alongside
+the Go implementation.
 
 ---
 
@@ -1726,8 +1653,6 @@ For architectural decisions and their rationale (hexagonal architecture, `samber
 
 ### Internal Documentation
 
-<!-- TODO: Create PATTERNS.md after Go code scaffolding, then update this link -->
-- PATTERNS.md (planned) - Go patterns for concurrency, services, error handling
 - Secret Redaction - see [Logging > Secret Redaction](#secret-redaction) section above
 - [Architecture Decision Records](./adr/README.md) - Key architectural decisions with context and rationale
 

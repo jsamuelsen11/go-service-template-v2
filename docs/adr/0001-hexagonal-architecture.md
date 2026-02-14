@@ -351,7 +351,9 @@ flowchart TB
 #### Flexibility 3: Multi-Version External Support
 
 Need to support multiple versions of an external API simultaneously? Each version gets its
-own adapter, all implementing the same port. Your domain doesn't care if data came from XML, JSON, or GraphQL.
+own adapter with its own ACL, all implementing the same port. Your domain doesn't care if
+data came from XML, JSON, or GraphQL -- each ACL translator absorbs the version-specific
+differences and produces the same domain entity.
 
 ```mermaid
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
@@ -362,10 +364,21 @@ flowchart TB
         V3["Partner API v3<br/>(beta partners)"]
     end
 
-    subgraph adapters["Adapter Layer - Version-Specific"]
-        A1["v1 Adapter<br/>Old field names<br/>XML format"]
-        A2["v2 Adapter<br/>New field names<br/>JSON format"]
-        A3["v3 Adapter<br/>GraphQL<br/>New auth"]
+    subgraph adapters["Adapter Layer - Version-Specific ACLs"]
+        subgraph a1["v1 Adapter"]
+            A1Client["ACL Client<br/>XML parser"]
+            A1Trans["ACL Translator<br/>Old field names → Domain"]
+        end
+
+        subgraph a2["v2 Adapter"]
+            A2Client["ACL Client<br/>JSON parser"]
+            A2Trans["ACL Translator<br/>New field names → Domain"]
+        end
+
+        subgraph a3["v3 Adapter"]
+            A3Client["ACL Client<br/>GraphQL client"]
+            A3Trans["ACL Translator<br/>GraphQL types → Domain"]
+        end
     end
 
     subgraph port["Port Layer"]
@@ -376,20 +389,35 @@ flowchart TB
         Entity["Partner Entity<br/>✅ Same domain model<br/>regardless of API version"]
     end
 
-    V1 --> A1
-    V2 --> A2
-    V3 --> A3
-    A1 -.->|"translates to"| Port
-    A2 -.->|"translates to"| Port
-    A3 -.->|"translates to"| Port
-    Port --> Entity
+    V1 --> A1Client
+    A1Client --> A1Trans
+    V2 --> A2Client
+    A2Client --> A2Trans
+    V3 --> A3Client
+    A3Client --> A3Trans
+
+    A1Trans -->|"produces"| Entity
+    A2Trans -->|"produces"| Entity
+    A3Trans -->|"produces"| Entity
+
+    Entity -->|"returned via"| Port
+
+    A1Trans -.->|"implements"| Port
+    A2Trans -.->|"implements"| Port
+    A3Trans -.->|"implements"| Port
 
     style V1 fill:#64748b,stroke:#475569,color:#fff
     style V2 fill:#10b981,stroke:#059669,color:#fff
     style V3 fill:#0ea5e9,stroke:#0284c7,color:#fff
-    style A1 fill:#64748b,stroke:#475569,color:#fff
-    style A2 fill:#10b981,stroke:#059669,color:#fff
-    style A3 fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style A1Client fill:#64748b,stroke:#475569,color:#fff
+    style A1Trans fill:#64748b,stroke:#475569,color:#fff
+    style A2Client fill:#10b981,stroke:#059669,color:#fff
+    style A2Trans fill:#10b981,stroke:#059669,color:#fff
+    style A3Client fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style A3Trans fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style a1 fill:none,stroke:#64748b,stroke-dasharray: 5 5
+    style a2 fill:none,stroke:#10b981,stroke-dasharray: 5 5
+    style a3 fill:none,stroke:#0ea5e9,stroke-dasharray: 5 5
     style Port fill:#a855f7,stroke:#9333ea,color:#fff
     style Entity fill:#84cc16,stroke:#65a30d,color:#fff
 ```
@@ -563,8 +591,57 @@ The **Two-Phase Request Context Pattern** (`/internal/app/context/`) addresses t
 request-scoped in-memory caching (`GetOrFetch`) and staged writes with automatic rollback
 (`AddAction` / `Commit`).
 
+```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
+flowchart TB
+    AppSvc["Application Service"]
+
+    subgraph rc["RequestContext"]
+        subgraph phase1["Phase 1: Read (GetOrFetch)"]
+            GOF["GetOrFetch(key, fetchFn)"]
+            Cache[("In-Memory Cache")]
+            GOF -->|"cache miss"| FetchFn["fetchFn() via Port"]
+            FetchFn -->|"store result"| Cache
+            GOF -->|"cache hit"| Cache
+        end
+
+        subgraph phase2["Phase 2: Write (AddAction / Commit)"]
+            AddAct["AddAction()"]
+            Queue[("Action Queue<br/>[]Action")]
+            AddAct -->|"stage"| Queue
+            Commit["Commit()"]
+            Queue -->|"execute in order"| Commit
+        end
+    end
+
+    Downstream(["Downstream Services"])
+    FetchFn -->|"HTTP call"| Downstream
+
+    AppSvc -->|"① fetch data"| GOF
+    Cache -->|"return cached"| AppSvc
+    AppSvc -->|"② stage writes"| AddAct
+    AppSvc -->|"③ execute all"| Commit
+
+    Commit -->|"all succeed"| Success["Return nil"]
+    Commit -->|"action fails"| Rollback["Rollback in<br/>reverse order"]
+
+    style AppSvc fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style GOF fill:#f59e0b,stroke:#d97706,color:#fff
+    style Cache fill:#f59e0b,stroke:#d97706,color:#fff
+    style FetchFn fill:#f59e0b,stroke:#d97706,color:#fff
+    style AddAct fill:#f59e0b,stroke:#d97706,color:#fff
+    style Queue fill:#f59e0b,stroke:#d97706,color:#fff
+    style Commit fill:#f59e0b,stroke:#d97706,color:#fff
+    style Downstream fill:#64748b,stroke:#475569,color:#fff
+    style Success fill:#84cc16,stroke:#65a30d,color:#fff
+    style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
+    style rc fill:none,stroke:#d97706,stroke-width:2px
+    style phase1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style phase2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+```
+
 See [ARCHITECTURE.md > Request Context Pattern](../ARCHITECTURE.md#request-context-pattern) for
-detailed diagrams, component reference, and implementation guidance.
+component reference, code examples, and implementation guidance.
 
 ## Consequences
 
@@ -592,10 +669,7 @@ detailed diagrams, component reference, and implementation guidance.
 
 ### Neutral
 
-- This pattern is well-established in the Go community (Netflix, Uber, etc.)
-- The template provides concrete examples making adoption easier
 - Dependency injection via `samber/do` v2 keeps the architecture explicit with minimal framework overhead
-- The investment in ACL pays dividends proportional to the number of external integrations and their rate of change
 
 ## References
 
