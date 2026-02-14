@@ -4,21 +4,40 @@ run:
   timeout: 5m
 
 linters:
-  default: standard
+  default: none
+
   enable:
-    # Bugs
+    # Standard (previously implicit via default: standard)
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Bug detection
     - bodyclose
     - noctx
     - rowserrcheck
     - sqlclosecheck
+
+    # Security
     - gosec
 
+    # Error handling
+    - errname
+    - errorlint
+
     # Style & conventions
-    - gofumpt
+    - gocritic
+    - revive
     - goconst
     - godot
-    - errname
+    - misspell
     - nolintlint
+
+    # Code quality
+    - dupl
+    - mnd
 
     # Performance
     - prealloc
@@ -26,41 +45,122 @@ linters:
 
     # Complexity
     - cyclop
+    - gocognit
     - nestif
 
     # Unused code
     - unparam
 
+    # Testing
+    - thelper
+    - tparallel
+    - testifylint
+
+    # Logging
+    - sloglint
+
   settings:
-    cyclop:
-      max-complexity: 15
+    errcheck:
+      check-type-assertions: true
 
-    gofumpt:
-      extra-rules: true
-
-    nestif:
-      min-complexity: 5
-
-    goconst:
-      min-len: 3
-      min-occurrences: 3
+    staticcheck:
+      checks:
+        - all
 
     gosec:
       excludes:
         - G104 # Duplicates errcheck
 
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+
+    revive:
+      severity: error
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
     nolintlint:
       require-explanation: true
       require-specific: true
 
+    misspell:
+      locale: US
+
+    dupl:
+      threshold: 100
+
+    mnd:
+      checks:
+        - argument
+        - case
+        - condition
+        - operation
+        - return
+        - assign
+
+    cyclop:
+      max-complexity: 15
+
+    gocognit:
+      min-complexity: 20
+
+    nestif:
+      min-complexity: 5
+
+    testifylint:
+      enable-all: true
+
+    sloglint:
+      no-mixed-args: true
+      kv-only: false
+      attr-only: false
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+  settings:
+    gofumpt:
+      module-path: github.com/jsamuelsen11/go-service-template-v2
+      extra-rules: true
+
+    goimports:
+      local-prefixes:
+        - github.com/jsamuelsen11/go-service-template-v2
+
 issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
   exclude-dirs:
     - vendor
     - testdata
 
   exclude-rules:
+    # Relax linters for test files
     - path: _test\.go
       linters:
         - gosec
         - bodyclose
         - noctx
+        - gocritic
+        - dupl
+        - mnd
+
+    # Test-only linters — exclude from non-test files
+    - path-except: _test\.go
+      linters:
+        - thelper
+        - tparallel
+        - testifylint
