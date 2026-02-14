@@ -666,9 +666,9 @@ Orchestration services often need to fetch data from multiple downstream service
 same data may be needed multiple times) and coordinate multiple write operations that should
 succeed or fail together.
 
-The **Two-Phase Request Context Pattern** (`/internal/app/context/`) addresses this with
-request-scoped in-memory caching (`GetOrFetch`) and staged writes with automatic rollback
-(`AddAction` / `Commit`).
+The **Request Context Pattern** (`/internal/app/context/`) addresses this with three stages:
+request-scoped data fetching (`GetOrFetch`), staged writes (`AddAction`), and atomic commit
+with automatic rollback (`Commit`).
 
 ```mermaid
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
@@ -676,7 +676,7 @@ flowchart TB
     AppSvc["Application Service"]
 
     subgraph rc["RequestContext"]
-        subgraph phase1["Phase 1: Read (GetOrFetch)"]
+        subgraph stage1["Stage 1: Fetch Data"]
             GOF["GetOrFetch(key, fetchFn)"]
             Cache[("In-Memory Cache")]
             GOF -->|"cache miss"| FetchFn["fetchFn() via Port"]
@@ -684,25 +684,30 @@ flowchart TB
             GOF -->|"cache hit"| Cache
         end
 
-        subgraph phase2["Phase 2: Write (AddAction / Commit)"]
+        subgraph stage2["Stage 2: Process Data"]
             AddAct["AddAction()"]
             Queue[("Action Queue<br/>[]Action")]
             AddAct -->|"stage"| Queue
+        end
+
+        subgraph stage3["Stage 3: Commit"]
             Commit["Commit()"]
+            Success["Return nil"]
+            Rollback["Rollback in<br/>reverse order"]
             Queue -->|"execute in order"| Commit
+            Commit -->|"all succeed"| Success
+            Commit -->|"action fails"| Rollback
         end
     end
 
     Downstream(["Downstream Services"])
     FetchFn -->|"HTTP call"| Downstream
+    Commit -->|"HTTP calls"| Downstream
 
-    AppSvc -->|"① fetch data"| GOF
+    AppSvc -->|"① fetch"| GOF
     Cache -->|"return cached"| AppSvc
     AppSvc -->|"② stage writes"| AddAct
-    AppSvc -->|"③ execute all"| Commit
-
-    Commit -->|"all succeed"| Success["Return nil"]
-    Commit -->|"action fails"| Rollback["Rollback in<br/>reverse order"]
+    AppSvc -->|"③ commit"| Commit
 
     style AppSvc fill:#0ea5e9,stroke:#0284c7,color:#fff
     style GOF fill:#f59e0b,stroke:#d97706,color:#fff
@@ -715,8 +720,9 @@ flowchart TB
     style Success fill:#84cc16,stroke:#65a30d,color:#fff
     style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
     style rc fill:none,stroke:#d97706,stroke-width:2px
-    style phase1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
-    style phase2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage3 fill:none,stroke:#d97706,stroke-dasharray: 5 5
 ```
 
 **Legend:**
@@ -730,7 +736,7 @@ flowchart TB
 | ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | Rollback / error path |
 | Circle (`((...))`) | In-memory storage (cache, queue) |
 | Stadium (`([...])`) | External I/O boundary |
-| Dashed border | Phase boundary |
+| Dashed border | Stage boundary |
 
 See [ARCHITECTURE.md > Request Context Pattern](../ARCHITECTURE.md#request-context-pattern) for
 component reference, code examples, and implementation guidance.

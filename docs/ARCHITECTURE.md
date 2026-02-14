@@ -972,8 +972,8 @@ default:
 
 ### Request Context Pattern
 
-For orchestration services that coordinate multiple downstream calls, the Two-Phase Request
-Context Pattern provides request-scoped in-memory caching and staged writes.
+For orchestration services that coordinate multiple downstream calls, the Request Context
+Pattern provides request-scoped data fetching, staged writes, and atomic commit with rollback.
 
 > **Important**: `RequestContext` is an application-layer wrapper that **embeds** Go's standard
 > `context.Context`. It does not replace `context.Context` -- it extends it for orchestration
@@ -986,9 +986,9 @@ See [ADR-0001](./adr/0001-hexagonal-architecture.md#request-context-pattern-for-
 | Component        | Purpose                                                |
 | ---------------- | ------------------------------------------------------ |
 | `RequestContext` | Main struct with in-memory cache and action collection |
-| `GetOrFetch()`   | Phase 1: Lazy memoization for expensive fetches        |
-| `AddAction()`    | Phase 2: Stage write operations                        |
-| `Commit()`       | Execute all actions with automatic rollback on failure |
+| `GetOrFetch()`   | Stage 1: Lazy memoization for expensive fetches        |
+| `AddAction()`    | Stage 2: Stage write operations for later execution    |
+| `Commit()`       | Stage 3: Execute all actions with automatic rollback   |
 | `DataProvider`   | Interface for type-safe data fetching (see below)      |
 | `Action`         | Interface for staged write operations (see below)      |
 
@@ -998,7 +998,7 @@ flowchart TB
     AppSvc["Application Service"]
 
     subgraph rc["RequestContext"]
-        subgraph phase1["Phase 1: Read (GetOrFetch)"]
+        subgraph stage1["Stage 1: Fetch Data"]
             GOF["GetOrFetch(key, fetchFn)"]
             Cache[("In-Memory Cache")]
             GOF -->|"cache miss"| FetchFn["fetchFn() via Port"]
@@ -1006,25 +1006,30 @@ flowchart TB
             GOF -->|"cache hit"| Cache
         end
 
-        subgraph phase2["Phase 2: Write (AddAction / Commit)"]
+        subgraph stage2["Stage 2: Process Data"]
             AddAct["AddAction()"]
             Queue[("Action Queue<br/>[]Action")]
             AddAct -->|"stage"| Queue
+        end
+
+        subgraph stage3["Stage 3: Commit"]
             Commit["Commit()"]
+            Success["Return nil"]
+            Rollback["Rollback in<br/>reverse order"]
             Queue -->|"execute in order"| Commit
+            Commit -->|"all succeed"| Success
+            Commit -->|"action fails"| Rollback
         end
     end
 
     Downstream(["Downstream Services"])
     FetchFn -->|"HTTP call"| Downstream
+    Commit -->|"HTTP calls"| Downstream
 
-    AppSvc -->|"① fetch data"| GOF
+    AppSvc -->|"① fetch"| GOF
     Cache -->|"return cached"| AppSvc
     AppSvc -->|"② stage writes"| AddAct
-    AppSvc -->|"③ execute all"| Commit
-
-    Commit -->|"all succeed"| Success["Return nil"]
-    Commit -->|"action fails"| Rollback["Rollback in<br/>reverse order"]
+    AppSvc -->|"③ commit"| Commit
 
     style AppSvc fill:#0ea5e9,stroke:#0284c7,color:#fff
     style GOF fill:#f59e0b,stroke:#d97706,color:#fff
@@ -1037,8 +1042,9 @@ flowchart TB
     style Success fill:#84cc16,stroke:#65a30d,color:#fff
     style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
     style rc fill:none,stroke:#d97706,stroke-width:2px
-    style phase1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
-    style phase2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style stage3 fill:none,stroke:#d97706,stroke-dasharray: 5 5
 ```
 
 **Legend:**
@@ -1052,7 +1058,7 @@ flowchart TB
 | ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red | Rollback / error path |
 | Circle (`((...))`) | In-memory storage (cache, queue) |
 | Stadium (`([...])`) | External I/O boundary |
-| Dashed border | Phase boundary |
+| Dashed border | Stage boundary |
 
 **`DataProvider` Interface:**
 
@@ -1107,14 +1113,14 @@ rc.AddGroup(
 
 **Example: Todo Completion Saga**
 
-This example shows both phases working together -- fetch with memoization, then stage
-writes with automatic rollback on failure:
+This example shows all three stages working together -- fetch with memoization, stage
+writes, then commit with automatic rollback on failure:
 
 ```go
 func (s *CompletionService) CompleteTodoWithEffects(ctx context.Context, todoID int64) error {
     rc := appctx.New(ctx)
 
-    // Phase 1: Fetch data with memoization
+    // Stage 1: Fetch data with memoization
     todo, err := rc.GetOrFetch("todo:"+fmt.Sprint(todoID), func(ctx context.Context) (any, error) {
         return s.todoClient.GetByID(ctx, todoID)
     })
@@ -1122,12 +1128,12 @@ func (s *CompletionService) CompleteTodoWithEffects(ctx context.Context, todoID 
         return err
     }
 
-    // Phase 2: Stage compensating actions
+    // Stage 2: Process data - stage compensating actions
     _ = rc.AddAction(&MarkTodoDoneAction{TodoID: todoID})
     _ = rc.AddAction(&UpdateProjectProgressAction{ProjectID: todo.(*Todo).ProjectID})
     _ = rc.AddAction(&SendCompletionNotificationAction{TodoID: todoID})
 
-    // Execute all or rollback on failure
+    // Stage 3: Commit - execute all or rollback on failure
     return rc.Commit(ctx)
 }
 ```
