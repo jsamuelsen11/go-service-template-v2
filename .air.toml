@@ -1,15 +1,15 @@
-root = "."
-tmp_dir = "tmp"
+root = '.'
+tmp_dir = 'tmp'
 
 [build]
-cmd = "go build -o ./tmp/main ./cmd/server"
-bin = "tmp/main"
-full_bin = "APP_PROFILE=local ./tmp/main"
-include_ext = ["go", "yaml"]
-include_dir = ["cmd", "internal", "configs"]
-exclude_dir = ["tmp", "vendor", "testdata", "node_modules"]
-exclude_regex = ["_test\\.go$"]
+bin = 'tmp/main'
+cmd = 'go build -o ./tmp/main ./cmd/server'
 delay = 1000
+exclude_dir = ['tmp', 'vendor', 'testdata', 'node_modules']
+exclude_regex = ['_test\.go$']
+full_bin = 'APP_PROFILE=local ./tmp/main'
+include_dir = ['cmd', 'internal', 'configs']
+include_ext = ['go', 'yaml']
 
 [log]
 time = false
