@@ -125,6 +125,27 @@ linters:
       kv-only: false
       attr-only: false
 
+  exclusions:
+    paths:
+      - vendor
+      - testdata
+    rules:
+      # Relax linters for test files
+      - path: _test\.go
+        linters:
+          - gosec
+          - bodyclose
+          - noctx
+          - gocritic
+          - dupl
+          - mnd
+      # Test-only linters — exclude from non-test files
+      - path-except: _test\.go
+        linters:
+          - thelper
+          - tparallel
+          - testifylint
+
 formatters:
   enable:
     - gofumpt
@@ -138,29 +159,3 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/jsamuelsen11/go-service-template-v2
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
-  exclude-dirs:
-    - vendor
-    - testdata
-
-  exclude-rules:
-    # Relax linters for test files
-    - path: _test\.go
-      linters:
-        - gosec
-        - bodyclose
-        - noctx
-        - gocritic
-        - dupl
-        - mnd
-
-    # Test-only linters — exclude from non-test files
-    - path-except: _test\.go
-      linters:
-        - thelper
-        - tparallel
-        - testifylint
