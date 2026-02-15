@@ -26,6 +26,10 @@ const jitterFraction = 0.25
 // to avoid false positives from the bodyclose linter; the caller is
 // responsible for closing the response body.
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request, resp **http.Response) error {
+	if c.retryCfg.maxAttempts <= 0 {
+		return fmt.Errorf("httpclient: maxAttempts must be >= 1, got %d", c.retryCfg.maxAttempts)
+	}
+
 	bodyBytes, err := bufferRequestBody(req)
 	if err != nil {
 		return err

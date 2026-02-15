@@ -142,6 +142,10 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 		spanCtx, span := c.startSpan(ctx, req)
 		defer span.End()
 
+		// Bind span context to the request so http.Client.Do uses it for
+		// cancellation, deadlines, and trace propagation.
+		req = req.WithContext(spanCtx)
+
 		retryErr := c.doWithRetry(spanCtx, req, &resp)
 		c.finishSpan(span, resp, retryErr)
 
