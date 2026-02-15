@@ -69,7 +69,7 @@ pre-commit:
 
           - name: hadolint
             glob: "Dockerfile*"
-            run: docker run --rm -i hadolint/hadolint < {staged_files}
+            run: go tool hadolint {staged_files}
 
     # === Job 3: Security ===
     # Scan for secrets and credentials
