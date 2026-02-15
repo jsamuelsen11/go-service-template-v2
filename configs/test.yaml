@@ -1,0 +1,15 @@
+server:
+  read_timeout: 1s
+  write_timeout: 2s
+  idle_timeout: 10s
+
+log:
+  level: debug
+  format: text
+
+client:
+  timeout: 5s
+  retry:
+    max_attempts: 1
+    initial_interval: 10ms
+    max_interval: 100ms

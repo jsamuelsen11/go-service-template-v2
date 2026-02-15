@@ -1,0 +1,7 @@
+client:
+  base_url: "http://todo-service:8081"
+
+telemetry:
+  enabled: true
+  exporter: otlp
+  endpoint: "http://otel-collector:4318"

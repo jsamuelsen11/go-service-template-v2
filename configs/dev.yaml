@@ -1,0 +1,6 @@
+log:
+  level: debug
+  format: text
+
+client:
+  base_url: "http://todo-service-dev:8081"

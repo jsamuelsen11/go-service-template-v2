@@ -1,15 +1,46 @@
 version: "3"
 
+vars:
+  COVERAGE_DIR: .coverage
+
 tasks:
-  test:
-    desc: Run unit tests
+  dev:
+    desc: Start development server with hot reload
     cmds:
-      - go test ./...
+      - go tool air
+
+  test:
+    desc: Run unit tests with testdox output
+    cmds:
+      - go tool gotestsum --format testdox -- ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - go tool golangci-lint run ./...
 
   build:
     desc: Build the project
     cmds:
       - go build ./...
+
+  mocks:
+    desc: Generate mocks with mockery
+    cmds:
+      - go tool mockery
+
+  deadcode:
+    desc: Detect dead code
+    cmds:
+      - go tool deadcode ./...
+
+  coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - go tool gotestsum --format testdox -- -coverprofile={{.COVERAGE_DIR}}/coverage.out -covermode=atomic ./...
+      - go tool cover -html={{.COVERAGE_DIR}}/coverage.out -o {{.COVERAGE_DIR}}/coverage.html
+      - go tool cover -func={{.COVERAGE_DIR}}/coverage.out
 
   vuln:
     desc: Run vulnerability check
