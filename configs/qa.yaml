@@ -1,0 +1,4 @@
+telemetry:
+  enabled: true
+  exporter: otlp
+  endpoint: "http://otel-collector-qa:4318"

@@ -1,0 +1,18 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ./cmd/server"
+bin = "tmp/main"
+full_bin = "APP_PROFILE=local ./tmp/main"
+include_ext = ["go", "yaml"]
+include_dir = ["cmd", "internal", "configs"]
+exclude_dir = ["tmp", "vendor", "testdata", "node_modules"]
+exclude_regex = ["_test\\.go$"]
+delay = 1000
+
+[log]
+time = false
+
+[misc]
+clean_on_exit = true
