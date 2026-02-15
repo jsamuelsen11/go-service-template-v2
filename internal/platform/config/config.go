@@ -53,7 +53,8 @@ type CircuitBreakerConfig struct {
 
 // TelemetryConfig holds OpenTelemetry settings.
 type TelemetryConfig struct {
-	Enabled  bool   `koanf:"enabled"`
-	Exporter string `koanf:"exporter"`
-	Endpoint string `koanf:"endpoint"`
+	Enabled     bool   `koanf:"enabled"`
+	Exporter    string `koanf:"exporter"`
+	Endpoint    string `koanf:"endpoint"`
+	ServiceName string `koanf:"service_name"`
 }
