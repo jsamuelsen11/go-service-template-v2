@@ -13,12 +13,13 @@
 //
 // Pre-registered metrics:
 //
-//	metrics, err := telemetry.NewMetrics(mp)
+//	metrics, err := telemetry.NewMetrics(mp, "my-service")
 //	metrics.ServerRequestTotal.Add(ctx, 1, ...)
 package telemetry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -36,8 +37,14 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 )
 
+// Exporter type constants.
+const (
+	ExporterStdout = "stdout"
+	ExporterOTLP   = "otlp"
+)
+
 // Attribute keys for metric labels, as specified in ARCHITECTURE.md.
-var (
+const (
 	AttrHTTPMethod  = attribute.Key("http.method")
 	AttrHTTPStatus  = attribute.Key("http.status_code")
 	AttrPeerService = attribute.Key("peer.service")
@@ -54,9 +61,10 @@ type Metrics struct {
 
 // InitTracer creates and registers a global TracerProvider.
 //
-// The exporter parameter selects the span exporter: "otlp" uses OTLP/HTTP
-// with the given endpoint; any other value (including "stdout") uses a
-// pretty-printed stdout exporter for development.
+// The exporter parameter selects the span exporter: ExporterOTLP ("otlp")
+// uses OTLP/HTTP with the given endpoint; ExporterStdout ("stdout") uses a
+// pretty-printed stdout exporter for development. Unrecognized values return
+// an error.
 //
 // The returned TracerProvider must be shut down when the application exits.
 func InitTracer(ctx context.Context, serviceName, exporter, endpoint string) (*sdktrace.TracerProvider, error) {
@@ -86,9 +94,9 @@ func InitTracer(ctx context.Context, serviceName, exporter, endpoint string) (*s
 
 // InitMeter creates and registers a global MeterProvider.
 //
-// The exporter parameter selects the metric exporter: "otlp" uses OTLP/HTTP
-// with the given endpoint; any other value (including "stdout") uses a
-// stdout exporter for development.
+// The exporter parameter selects the metric exporter: ExporterOTLP ("otlp")
+// uses OTLP/HTTP with the given endpoint; ExporterStdout ("stdout") uses a
+// stdout exporter for development. Unrecognized values return an error.
 //
 // The returned MeterProvider must be shut down when the application exits.
 func InitMeter(ctx context.Context, serviceName, exporter, endpoint string) (*sdkmetric.MeterProvider, error) {
@@ -113,9 +121,9 @@ func InitMeter(ctx context.Context, serviceName, exporter, endpoint string) (*sd
 }
 
 // NewMetrics creates and registers all metric instruments using the given MeterProvider.
-// The meter is scoped to the service's module path.
-func NewMetrics(mp *sdkmetric.MeterProvider) (*Metrics, error) {
-	meter := mp.Meter("github.com/jsamuelsen11/go-service-template-v2")
+// The instrumentationName scopes the meter (typically the service name or module path).
+func NewMetrics(mp *sdkmetric.MeterProvider, instrumentationName string) (*Metrics, error) {
+	meter := mp.Meter(instrumentationName)
 
 	serverDuration, err := meter.Float64Histogram(
 		"http.server.request.duration",
@@ -172,42 +180,86 @@ func newResource(serviceName string) (*resource.Resource, error) {
 }
 
 func newSpanExporter(ctx context.Context, exporter, endpoint string) (sdktrace.SpanExporter, error) {
-	if exporter == "otlp" {
-		opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(hostPort(endpoint))}
-		if !isHTTPS(endpoint) {
-			opts = append(opts, otlptracehttp.WithInsecure())
+	switch exporter {
+	case ExporterOTLP:
+		opts, err := otlpHTTPOptions(endpoint)
+		if err != nil {
+			return nil, err
 		}
-		return otlptracehttp.New(ctx, opts...)
+		traceOpts := make([]otlptracehttp.Option, 0, len(opts))
+		for _, o := range opts {
+			traceOpts = append(traceOpts, o.trace)
+		}
+		return otlptracehttp.New(ctx, traceOpts...)
+	case ExporterStdout:
+		return stdouttrace.New(stdouttrace.WithPrettyPrint())
+	default:
+		return nil, fmt.Errorf("unsupported exporter %q, must be %q or %q", exporter, ExporterStdout, ExporterOTLP)
 	}
-	return stdouttrace.New(stdouttrace.WithPrettyPrint())
 }
 
 func newMetricExporter(ctx context.Context, exporter, endpoint string) (sdkmetric.Exporter, error) {
-	if exporter == "otlp" {
-		opts := []otlpmetrichttp.Option{otlpmetrichttp.WithEndpoint(hostPort(endpoint))}
-		if !isHTTPS(endpoint) {
-			opts = append(opts, otlpmetrichttp.WithInsecure())
+	switch exporter {
+	case ExporterOTLP:
+		opts, err := otlpHTTPOptions(endpoint)
+		if err != nil {
+			return nil, err
 		}
-		return otlpmetrichttp.New(ctx, opts...)
+		metricOpts := make([]otlpmetrichttp.Option, 0, len(opts))
+		for _, o := range opts {
+			metricOpts = append(metricOpts, o.metric)
+		}
+		return otlpmetrichttp.New(ctx, metricOpts...)
+	case ExporterStdout:
+		return stdoutmetric.New()
+	default:
+		return nil, fmt.Errorf("unsupported exporter %q, must be %q or %q", exporter, ExporterStdout, ExporterOTLP)
 	}
-	return stdoutmetric.New()
 }
 
-// hostPort extracts the host:port from a URL string
-// (e.g., "http://otel-collector:4318" -> "otel-collector:4318").
-func hostPort(endpoint string) string {
-	u, err := url.Parse(endpoint)
-	if err != nil || u.Host == "" {
-		return endpoint
-	}
-	return u.Host
+// otlpOption pairs trace and metric options so they stay in sync.
+type otlpOption struct {
+	trace  otlptracehttp.Option
+	metric otlpmetrichttp.Option
 }
 
-// isHTTPS returns true if the endpoint URL uses the https scheme.
-func isHTTPS(endpoint string) bool {
+// otlpHTTPOptions parses the endpoint URL and returns matched trace/metric
+// option pairs. The endpoint must be a valid URL with a host component
+// (e.g. "http://otel-collector:4318"). Any path component is preserved
+// via WithURLPath.
+func otlpHTTPOptions(endpoint string) ([]otlpOption, error) {
+	if endpoint == "" {
+		return nil, errors.New("otlp endpoint must not be empty")
+	}
+
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return false
+		return nil, fmt.Errorf("parsing otlp endpoint %q: %w", endpoint, err)
 	}
-	return u.Scheme == "https"
+	if u.Host == "" {
+		return nil, fmt.Errorf("otlp endpoint %q must include a host", endpoint)
+	}
+
+	opts := []otlpOption{
+		{
+			trace:  otlptracehttp.WithEndpoint(u.Host),
+			metric: otlpmetrichttp.WithEndpoint(u.Host),
+		},
+	}
+
+	if u.Path != "" && u.Path != "/" {
+		opts = append(opts, otlpOption{
+			trace:  otlptracehttp.WithURLPath(u.Path),
+			metric: otlpmetrichttp.WithURLPath(u.Path),
+		})
+	}
+
+	if u.Scheme != "https" {
+		opts = append(opts, otlpOption{
+			trace:  otlptracehttp.WithInsecure(),
+			metric: otlpmetrichttp.WithInsecure(),
+		})
+	}
+
+	return opts, nil
 }

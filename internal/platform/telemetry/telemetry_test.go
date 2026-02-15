@@ -13,7 +13,7 @@ import (
 func TestInitTracer_Stdout(t *testing.T) {
 	ctx := context.Background()
 
-	tp, err := telemetry.InitTracer(ctx, "test-service", "stdout", "")
+	tp, err := telemetry.InitTracer(ctx, "test-service", telemetry.ExporterStdout, "")
 	if err != nil {
 		t.Fatalf("InitTracer(stdout) error = %v", err)
 	}
@@ -31,7 +31,7 @@ func TestInitTracer_Stdout(t *testing.T) {
 func TestInitTracer_OTLP(t *testing.T) {
 	ctx := context.Background()
 
-	tp, err := telemetry.InitTracer(ctx, "test-service", "otlp", "http://localhost:4318")
+	tp, err := telemetry.InitTracer(ctx, "test-service", telemetry.ExporterOTLP, "http://localhost:4318")
 	if err != nil {
 		t.Fatalf("InitTracer(otlp) error = %v", err)
 	}
@@ -48,7 +48,7 @@ func TestInitTracer_OTLP(t *testing.T) {
 func TestInitTracer_SetsGlobalPropagator(t *testing.T) {
 	ctx := context.Background()
 
-	tp, err := telemetry.InitTracer(ctx, "test-service", "stdout", "")
+	tp, err := telemetry.InitTracer(ctx, "test-service", telemetry.ExporterStdout, "")
 	if err != nil {
 		t.Fatalf("InitTracer error = %v", err)
 	}
@@ -69,10 +69,32 @@ func TestInitTracer_SetsGlobalPropagator(t *testing.T) {
 	}
 }
 
+func TestInitTracer_UnsupportedExporter(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	_, err := telemetry.InitTracer(ctx, "test-service", "invalid", "")
+	if err == nil {
+		t.Fatal("InitTracer with unsupported exporter should return error")
+	}
+}
+
+func TestInitTracer_OTLPEmptyEndpoint(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	_, err := telemetry.InitTracer(ctx, "test-service", telemetry.ExporterOTLP, "")
+	if err == nil {
+		t.Fatal("InitTracer with otlp and empty endpoint should return error")
+	}
+}
+
 func TestInitMeter_Stdout(t *testing.T) {
 	ctx := context.Background()
 
-	mp, err := telemetry.InitMeter(ctx, "test-service", "stdout", "")
+	mp, err := telemetry.InitMeter(ctx, "test-service", telemetry.ExporterStdout, "")
 	if err != nil {
 		t.Fatalf("InitMeter(stdout) error = %v", err)
 	}
@@ -90,7 +112,7 @@ func TestInitMeter_Stdout(t *testing.T) {
 func TestInitMeter_OTLP(t *testing.T) {
 	ctx := context.Background()
 
-	mp, err := telemetry.InitMeter(ctx, "test-service", "otlp", "http://localhost:4318")
+	mp, err := telemetry.InitMeter(ctx, "test-service", telemetry.ExporterOTLP, "http://localhost:4318")
 	if err != nil {
 		t.Fatalf("InitMeter(otlp) error = %v", err)
 	}
@@ -104,10 +126,32 @@ func TestInitMeter_OTLP(t *testing.T) {
 	}
 }
 
+func TestInitMeter_UnsupportedExporter(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	_, err := telemetry.InitMeter(ctx, "test-service", "invalid", "")
+	if err == nil {
+		t.Fatal("InitMeter with unsupported exporter should return error")
+	}
+}
+
+func TestInitMeter_OTLPEmptyEndpoint(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	_, err := telemetry.InitMeter(ctx, "test-service", telemetry.ExporterOTLP, "")
+	if err == nil {
+		t.Fatal("InitMeter with otlp and empty endpoint should return error")
+	}
+}
+
 func TestNewMetrics(t *testing.T) {
 	ctx := context.Background()
 
-	mp, err := telemetry.InitMeter(ctx, "test-service", "stdout", "")
+	mp, err := telemetry.InitMeter(ctx, "test-service", telemetry.ExporterStdout, "")
 	if err != nil {
 		t.Fatalf("InitMeter error = %v", err)
 	}
@@ -117,7 +161,7 @@ func TestNewMetrics(t *testing.T) {
 		}
 	})
 
-	metrics, err := telemetry.NewMetrics(mp)
+	metrics, err := telemetry.NewMetrics(mp, "test-service")
 	if err != nil {
 		t.Fatalf("NewMetrics error = %v", err)
 	}
