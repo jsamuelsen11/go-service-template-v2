@@ -36,7 +36,7 @@ pre-commit:
           - name: prettier
             glob: "*.{yaml,yml,json,md}"
             exclude: "^(\\.github/.*|\\.beads/.*)$"
-            run: npx --yes prettier --write {staged_files}
+            run: npx --yes prettier --list-different --write {staged_files}
             stage_fixed: true
 
     # === Job 2: Lint ===
@@ -56,7 +56,7 @@ pre-commit:
 
           - name: vacuum
             glob: "*openapi*.{yaml,yml,json}"
-            run: go tool vacuum lint -r .spectral.yaml {staged_files}
+            run: go tool vacuum lint --no-banner --details --errors -r .spectral.yaml {staged_files}
 
           - name: markdownlint
             glob: "*.md"
