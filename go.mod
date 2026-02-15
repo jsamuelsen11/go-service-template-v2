@@ -2,6 +2,8 @@ module github.com/jsamuelsen11/go-service-template-v2
 
 go 1.25.6
 
+toolchain go1.25.7
+
 tool (
 	github.com/air-verse/air
 	github.com/client9/misspell/cmd/misspell
