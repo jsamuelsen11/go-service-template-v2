@@ -135,8 +135,12 @@ func (g *actionGroup) description() string {
 }
 
 // AddAction stages a single action for later execution by Commit.
-// Returns ErrAlreadyCommitted if the RequestContext has already been committed.
+// Returns ErrNilAction if action is nil, or ErrAlreadyCommitted if the
+// RequestContext has already been committed.
 func (rc *RequestContext) AddAction(action Action) error {
+	if action == nil {
+		return ErrNilAction
+	}
 	if rc.committed {
 		return ErrAlreadyCommitted
 	}
@@ -146,9 +150,14 @@ func (rc *RequestContext) AddAction(action Action) error {
 
 // AddGroup stages an action group for parallel execution by Commit.
 // All actions in the group execute concurrently when the group's turn
-// arrives during Commit. Returns ErrAlreadyCommitted if the RequestContext
-// has already been committed.
+// arrives during Commit. Returns ErrNilAction if any action is nil, or
+// ErrAlreadyCommitted if the RequestContext has already been committed.
 func (rc *RequestContext) AddGroup(actions ...Action) error {
+	for _, a := range actions {
+		if a == nil {
+			return ErrNilAction
+		}
+	}
 	if rc.committed {
 		return ErrAlreadyCommitted
 	}

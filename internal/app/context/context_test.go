@@ -512,14 +512,14 @@ func TestActionGroup_CancelsInProgress(t *testing.T) {
 	t.Parallel()
 	rc := New(context.Background())
 
-	var ctxCancelled atomic.Bool
+	cancelObserved := make(chan struct{})
 
 	slow := &testAction{
 		desc: "slow",
 		executeFn: func(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
-				ctxCancelled.Store(true)
+				close(cancelObserved)
 				return ctx.Err()
 			case <-time.After(5 * time.Second):
 				return nil
@@ -531,10 +531,11 @@ func TestActionGroup_CancelsInProgress(t *testing.T) {
 	_ = rc.AddGroup(slow, fast)
 	_ = rc.Commit(context.Background())
 
-	// Give the slow action a moment to observe cancellation.
-	time.Sleep(50 * time.Millisecond)
-	if !ctxCancelled.Load() {
-		t.Fatal("expected slow action's context to be canceled")
+	select {
+	case <-cancelObserved:
+		// ok: slow action observed context cancellation
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for slow action to observe cancellation")
 	}
 }
 
@@ -635,6 +636,53 @@ func TestCommit_GroupFailureRollbacksPriorItems(t *testing.T) {
 	}
 	if !a2.rolledBack {
 		t.Fatal("a2 should be rolled back")
+	}
+}
+
+// --- Input validation tests ---
+
+func TestAddAction_NilAction(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	err := rc.AddAction(nil)
+	if !errors.Is(err, ErrNilAction) {
+		t.Fatalf("got %v, want ErrNilAction", err)
+	}
+	if len(rc.items) != 0 {
+		t.Fatal("nil action should not be staged")
+	}
+}
+
+func TestAddGroup_NilAction(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	err := rc.AddGroup(&testAction{desc: "ok"}, nil, &testAction{desc: "also ok"})
+	if !errors.Is(err, ErrNilAction) {
+		t.Fatalf("got %v, want ErrNilAction", err)
+	}
+	if len(rc.items) != 0 {
+		t.Fatal("group with nil action should not be staged")
+	}
+}
+
+func TestGetOrFetch_TypeMismatch(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	// Cache a string under "key".
+	_, _ = GetOrFetch(rc, "key", func(_ context.Context) (string, error) {
+		return "text", nil
+	})
+
+	// Retrieve as int — should return ErrTypeMismatch.
+	_, err := GetOrFetch(rc, "key", func(_ context.Context) (int, error) {
+		t.Fatal("fetchFn should not be called on cache hit")
+		return 0, nil
+	})
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("got %v, want ErrTypeMismatch", err)
 	}
 }
 

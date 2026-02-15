@@ -21,11 +21,21 @@ package appctx
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // ErrAlreadyCommitted is returned when AddAction, AddGroup, or Commit is
 // called on a RequestContext that has already been committed.
 var ErrAlreadyCommitted = errors.New("appctx: request context already committed")
+
+// ErrNilAction is returned when a nil Action is passed to AddAction or
+// AddGroup.
+var ErrNilAction = errors.New("appctx: nil action")
+
+// ErrTypeMismatch is returned by GetOrFetch when a cached value's type does
+// not match the requested type T. This indicates a programming error where
+// the same cache key is used with different types.
+var ErrTypeMismatch = errors.New("appctx: cached value type mismatch")
 
 // RequestContext is a request-scoped context wrapper providing in-memory
 // caching and staged action execution. It embeds context.Context and adds
@@ -61,16 +71,24 @@ func New(ctx context.Context) *RequestContext {
 // fetch and cache it. Both successful results and errors are cached to
 // prevent redundant calls within the same request.
 //
-// The same key must always be used with the same type T. Using different
-// types for the same key results in a zero value on cache hit. Use
-// DataProvider for type-safe, reusable fetch bindings.
+// The same key must always be used with the same type T. If a cached value
+// exists but its type does not match T, GetOrFetch returns ErrTypeMismatch.
+// Use DataProvider for type-safe, reusable fetch bindings that prevent this.
 //
 // GetOrFetch is NOT safe for concurrent use. It is designed for sequential
 // orchestration within a single request goroutine.
 func GetOrFetch[T any](rc *RequestContext, key string, fetchFn func(ctx context.Context) (T, error)) (T, error) {
 	if entry, ok := rc.cache[key]; ok {
-		v, _ := entry.value.(T)
-		return v, entry.err
+		if entry.err != nil {
+			var zero T
+			return zero, entry.err
+		}
+		v, ok := entry.value.(T)
+		if !ok {
+			var zero T
+			return zero, fmt.Errorf("%w: key %q holds %T, requested %T", ErrTypeMismatch, key, entry.value, zero)
+		}
+		return v, nil
 	}
 
 	val, err := fetchFn(rc.Context)
