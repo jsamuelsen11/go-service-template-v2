@@ -1,25 +1,42 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/confmap"
 	env "github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 )
 
-const envPrefix = "APP_"
+const (
+	envPrefix        = "APP_"
+	defaultConfigDir = "configs"
+)
 
-// Load reads configuration using a 4-layer hierarchy (highest precedence last):
+// Option configures the Load function.
+type Option func(*loadOptions)
+
+type loadOptions struct {
+	configDir string
+}
+
+// WithConfigDir sets the directory where config YAML files are located.
+// Defaults to "configs" relative to the working directory.
+func WithConfigDir(dir string) Option {
+	return func(o *loadOptions) {
+		o.configDir = dir
+	}
+}
+
+// Load reads configuration using a 3-layer hierarchy (highest precedence last):
 //
-//  1. Hardcoded defaults
-//  2. Base config (configs/base.yaml)
-//  3. Profile config (configs/{profile}.yaml)
-//  4. Environment variables (APP_ prefix)
+//  1. Base config ({configDir}/base.yaml)
+//  2. Profile config ({configDir}/{profile}.yaml)
+//  3. Environment variables (APP_ prefix)
 //
 // Environment variable mapping uses key matching against loaded config keys
 // to resolve ambiguity between nesting separators and field-internal underscores:
@@ -28,27 +45,31 @@ const envPrefix = "APP_"
 //	APP_SERVER_READ_TIMEOUT   -> server.read_timeout
 //	APP_LOG_LEVEL             -> log.level
 //	APP_CLIENT_RETRY_MAX_ATTEMPTS -> client.retry.max_attempts
-func Load(profile string) (*Config, error) {
-	k := koanf.New(".")
-
-	// Layer 1: Hardcoded defaults.
-	if err := k.Load(confmap.Provider(defaults(), "."), nil); err != nil {
-		return nil, fmt.Errorf("loading defaults: %w", err)
+func Load(profile string, opts ...Option) (*Config, error) {
+	if err := validateProfile(profile); err != nil {
+		return nil, err
 	}
 
-	// Layer 2: Base config (shared across all profiles).
-	basePath := filepath.Join("configs", "base.yaml")
+	o := &loadOptions{configDir: defaultConfigDir}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	k := koanf.New(".")
+
+	// Layer 1: Base config (shared across all profiles).
+	basePath := filepath.Join(o.configDir, "base.yaml")
 	if err := k.Load(file.Provider(basePath), yaml.Parser()); err != nil {
 		return nil, fmt.Errorf("loading base config %s: %w", basePath, err)
 	}
 
-	// Layer 3: Profile-specific config.
-	profilePath := filepath.Join("configs", profile+".yaml")
+	// Layer 2: Profile-specific config.
+	profilePath := filepath.Join(o.configDir, profile+".yaml")
 	if err := k.Load(file.Provider(profilePath), yaml.Parser()); err != nil {
 		return nil, fmt.Errorf("loading profile config %s: %w", profilePath, err)
 	}
 
-	// Layer 4: Environment variables with APP_ prefix.
+	// Layer 3: Environment variables with APP_ prefix.
 	// Build a reverse lookup from known koanf keys so that env vars like
 	// APP_SERVER_READ_TIMEOUT correctly resolve to "server.read_timeout"
 	// instead of being ambiguously split as "server.read.timeout".
@@ -83,6 +104,20 @@ func Load(profile string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// validateProfile checks that the profile name is safe and non-empty.
+func validateProfile(profile string) error {
+	if strings.TrimSpace(profile) == "" {
+		return errors.New("profile must not be empty")
+	}
+	if strings.ContainsAny(profile, `/\`) {
+		return fmt.Errorf("profile must not contain path separators, got %q", profile)
+	}
+	if strings.Contains(profile, "..") {
+		return fmt.Errorf("profile must not contain path traversal, got %q", profile)
+	}
+	return nil
 }
 
 // buildEnvLookup creates a reverse mapping from env-style keys to koanf dotted keys.

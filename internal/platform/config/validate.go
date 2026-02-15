@@ -63,12 +63,26 @@ func (cl *ClientConfig) validate() error {
 	if cl.Retry.MaxAttempts < 1 {
 		errs = append(errs, fmt.Errorf("client.retry.max_attempts must be >= 1, got %d", cl.Retry.MaxAttempts))
 	}
+	if cl.Retry.InitialInterval <= 0 {
+		errs = append(errs, errors.New("client.retry.initial_interval must be positive"))
+	}
+	if cl.Retry.MaxInterval <= 0 {
+		errs = append(errs, errors.New("client.retry.max_interval must be positive"))
+	}
 	if cl.Retry.Multiplier <= 0 {
 		errs = append(errs, fmt.Errorf("client.retry.multiplier must be positive, got %f", cl.Retry.Multiplier))
+	}
+	if cl.Retry.InitialInterval > 0 && cl.Retry.MaxInterval > 0 && cl.Retry.InitialInterval > cl.Retry.MaxInterval {
+		errs = append(errs, fmt.Errorf(
+			"client.retry.initial_interval (%v) must not exceed max_interval (%v)",
+			cl.Retry.InitialInterval, cl.Retry.MaxInterval))
 	}
 	if cl.CircuitBreaker.MaxFailures < 1 {
 		errs = append(errs, fmt.Errorf("client.circuit_breaker.max_failures must be >= 1, got %d",
 			cl.CircuitBreaker.MaxFailures))
+	}
+	if cl.CircuitBreaker.Timeout <= 0 {
+		errs = append(errs, errors.New("client.circuit_breaker.timeout must be positive"))
 	}
 
 	return errors.Join(errs...)
