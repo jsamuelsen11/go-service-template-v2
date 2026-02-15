@@ -16,6 +16,7 @@ pre-commit:
           - name: go-mod-tidy
             glob: "*.go"
             run: go mod tidy
+            stage_fixed: true
 
           - name: gofumpt
             glob: "*.go"

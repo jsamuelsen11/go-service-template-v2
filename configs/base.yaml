@@ -26,3 +26,4 @@ telemetry:
   enabled: false
   exporter: stdout
   endpoint: ""
+  service_name: "go-service-template"

@@ -42,3 +42,6 @@ temp/
 
 # Downstream API specs (not our contract)
 todo-service-openapi.yaml
+
+# Serana Config
+.serena/
