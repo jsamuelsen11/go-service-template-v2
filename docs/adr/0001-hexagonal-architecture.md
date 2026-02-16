@@ -359,7 +359,7 @@ flowchart TB
     end
 
     subgraph app["Application Layer"]
-        Service["TodoService<br/>✅ No changes"]
+        Service["ProjectService<br/>✅ No changes"]
     end
 
     subgraph config["Build/Deploy Selection"]
@@ -432,7 +432,7 @@ flowchart TB
     end
 
     subgraph app["Application Layer"]
-        TodoSvc["TodoService<br/>✅ Unchanged"]
+        ProjSvc["ProjectService<br/>✅ Unchanged"]
         SubSvc["SubscriptionService<br/>✨ Added v2"]
         LoyaltySvc["LoyaltyService<br/>✨ Added v3"]
     end
@@ -440,7 +440,7 @@ flowchart TB
     Todo --> TodoPort
     Subscription --> SubPort
     Loyalty --> LoyaltyPort
-    TodoPort --> TodoSvc
+    TodoPort --> ProjSvc
     SubPort --> SubSvc
     LoyaltyPort --> LoyaltySvc
 
@@ -448,7 +448,7 @@ flowchart TB
     style TodoRules fill:#84cc16,stroke:#65a30d,color:#fff
     style TodoErrors fill:#84cc16,stroke:#65a30d,color:#fff
     style TodoPort fill:#84cc16,stroke:#65a30d,color:#fff
-    style TodoSvc fill:#84cc16,stroke:#65a30d,color:#fff
+    style ProjSvc fill:#84cc16,stroke:#65a30d,color:#fff
     style Subscription fill:#0ea5e9,stroke:#0284c7,color:#fff
     style SubRules fill:#0ea5e9,stroke:#0284c7,color:#fff
     style SubErrors fill:#0ea5e9,stroke:#0284c7,color:#fff
@@ -601,7 +601,7 @@ flowchart TB
 
     subgraph ports["Ports Layer (UNCHANGED)"]
         CliPort{{"TodoClient Port<br/>✅ No changes"}}
-        SvcPort{{"TodoService Port<br/>✅ No changes"}}
+        SvcPort{{"ProjectService Port<br/>✅ No changes"}}
     end
 
     API --> OldEntity
@@ -685,26 +685,31 @@ multiple domains, see [ARCHITECTURE.md > Scaling to Multiple Domains](../ARCHITE
 
 ```text
 internal/
-├── domain/          # Domain Layer - Pure business logic
-│   ├── todo.go      #   Entities and value objects
-│   └── errors.go    #   Domain-specific errors
-├── ports/           # Ports Layer - Interface contracts
-│   ├── services.go  #   Service port definitions (implemented by app layer)
-│   ├── clients.go   #   Client port definitions (implemented by adapters)
-│   └── health.go    #   Health check interfaces
-├── app/             # Application Layer - Use case orchestration
-│   └── todo_service.go
-├── adapters/        # Adapters Layer - Infrastructure implementations
-│   ├── http/        #   Inbound adapters (handlers, middleware)
-│   └── clients/     #   Outbound adapters
-│       └── acl/     #   ⭐ Anti-Corruption Layer
+├── domain/              # Domain Layer - Pure business logic
+│   ├── doc.go           #   Package documentation
+│   ├── errors.go        #   Domain errors + msgRequired constant
+│   ├── filter.go        #   TodoFilter (status, category, project filters)
+│   ├── project.go       #   Project entity + validation
+│   ├── todo.go          #   Todo entity + validation (includes ProjectID)
+│   └── value_objects.go #   Value objects (TodoStatus, TodoCategory)
+├── ports/               # Ports Layer - Interface contracts
+│   ├── doc.go           #   Package documentation
+│   ├── services.go      #   ProjectService port (implemented by app layer)
+│   ├── clients.go       #   TodoClient port (implemented by adapters)
+│   └── health.go        #   HealthChecker, HealthRegistry interfaces
+├── app/                 # Application Layer - Use case orchestration
+│   └── project_service.go
+├── adapters/            # Adapters Layer - Infrastructure implementations
+│   ├── http/            #   Inbound adapters (handlers, middleware)
+│   └── clients/         #   Outbound adapters
+│       └── acl/         #   ⭐ Anti-Corruption Layer
 │           ├── todo_client.go       # External client adapter
 │           ├── todo_translator.go   # DTO → Domain translation
 │           └── todo_errors.go       # Error translation
-└── platform/        # Platform Layer - Cross-cutting concerns
-    ├── config/      #   Configuration loading
-    ├── logging/     #   Structured logging
-    └── telemetry/   #   Tracing and metrics
+└── platform/            # Platform Layer - Cross-cutting concerns
+    ├── config/          #   Configuration loading
+    ├── logging/         #   Structured logging
+    └── telemetry/       #   Tracing and metrics
 ```
 
 > **ACL file naming convention**: Prefix all ACL files with the domain name (`todo_client.go`,

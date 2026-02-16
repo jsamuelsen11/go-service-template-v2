@@ -15,6 +15,9 @@ var (
 	ErrUnavailable = errors.New("unavailable")
 )
 
+// msgRequired is the validation message for mandatory fields.
+const msgRequired = "is required"
+
 // ValidationError provides programmatic access to field-level validation failures.
 // Use errors.Is(err, ErrValidation) for simple checks, or errors.As(err, &verr) to
 // access verr.Fields for per-field error details.
