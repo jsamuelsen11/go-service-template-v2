@@ -27,7 +27,7 @@ This project implements **Hexagonal Architecture** (Ports & Adapters) as defined
 - Ports define interfaces; concrete implementations live in Adapters
 - Application services orchestrate use cases but contain **no business logic**
 - All external API integration goes through the **Anti-Corruption Layer** (`adapters/clients/acl/`)
-- ACL files are domain-prefixed: `todo_client.go`, `todo_translator.go`, `todo_errors.go`
+- ACL uses domain subpackages: `acl/todo/`, `acl/project/` with shared `acl/errors.go`
 - Port files are split: `services.go` (service ports), `clients.go` (client ports), `health.go`
 
 ## Dependency Injection
