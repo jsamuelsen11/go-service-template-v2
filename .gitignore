@@ -45,3 +45,6 @@ todo-service-openapi.yaml
 
 # Serana Config
 .serena/
+
+# Claude Config
+.claude/
