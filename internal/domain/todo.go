@@ -14,6 +14,7 @@ type Todo struct {
 	Status          TodoStatus
 	Category        TodoCategory
 	ProgressPercent int
+	ProjectID       *int64
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -25,10 +26,10 @@ func (t *Todo) Validate() error {
 	fields := make(map[string]string)
 
 	if strings.TrimSpace(t.Title) == "" {
-		fields["title"] = "is required"
+		fields["title"] = msgRequired
 	}
 	if strings.TrimSpace(t.Description) == "" {
-		fields["description"] = "is required"
+		fields["description"] = msgRequired
 	}
 	if !t.Status.IsValid() {
 		fields["status"] = fmt.Sprintf("invalid: %q", t.Status)
@@ -38,6 +39,9 @@ func (t *Todo) Validate() error {
 	}
 	if t.ProgressPercent < 0 || t.ProgressPercent > 100 {
 		fields["progress_percent"] = fmt.Sprintf("must be 0-100, got %d", t.ProgressPercent)
+	}
+	if t.ProjectID != nil && *t.ProjectID <= 0 {
+		fields["project_id"] = fmt.Sprintf("must be positive, got %d", *t.ProjectID)
 	}
 
 	if len(fields) > 0 {

@@ -3,8 +3,8 @@ openapi: "3.1.0"
 info:
   title: Go Service Template API
   description: >-
-    A TODO management API built with hexagonal architecture.
-    Provides CRUD operations for TODO items with progress tracking,
+    A project and TODO management API built with hexagonal architecture.
+    Provides CRUD operations for projects and TODO items with progress tracking,
     category filtering, and RFC 7807 problem detail error responses.
   version: 0.1.0
 
@@ -13,14 +13,310 @@ servers:
     description: Local development
 
 tags:
+  - name: projects
+    description: Project management (collections of TODOs)
   - name: todos
     description: TODO item management
 
 paths:
+  /api/v1/projects:
+    get:
+      summary: List all projects
+      description: Retrieve all projects.
+      operationId: list-projects
+      tags:
+        - projects
+      responses:
+        "200":
+          description: Successful response with list of projects.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectListResponse"
+              example:
+                projects:
+                  - id: 1
+                    name: Sprint 1
+                    description: First sprint tasks
+                    createdAt: "2026-02-12T15:04:05Z"
+                    updatedAt: "2026-02-12T15:04:05Z"
+                count: 1
+        default:
+          description: Unexpected error during project listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Internal Server Error
+                status: 500
+                detail: An unexpected error occurred.
+
+    post:
+      summary: Create a new project
+      description: Create a new project for organizing TODOs.
+      operationId: create-project
+      tags:
+        - projects
+      requestBody:
+        description: The project to create.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Project created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+              example:
+                id: 1
+                name: Sprint 1
+                description: First sprint tasks
+                createdAt: "2026-02-12T15:04:05Z"
+                updatedAt: "2026-02-12T15:04:05Z"
+        default:
+          description: Validation or unexpected error during project creation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: "Property name is required but is missing."
+
+  /api/v1/projects/{id}:
+    get:
+      summary: Get a project by ID
+      description: Retrieve a single project by its ID, including its TODOs.
+      operationId: get-project
+      tags:
+        - projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Successful response with the requested project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+              example:
+                id: 1
+                name: Sprint 1
+                description: First sprint tasks
+                todos:
+                  - id: 1
+                    title: Buy groceries
+                    description: Milk, eggs, bread
+                    status: pending
+                    category: personal
+                    progressPercent: 0
+                    projectId: 1
+                    createdAt: "2026-02-12T15:04:05Z"
+                    updatedAt: "2026-02-12T15:04:05Z"
+                createdAt: "2026-02-12T15:04:05Z"
+                updatedAt: "2026-02-12T15:04:05Z"
+        default:
+          description: Not found or unexpected error when fetching a project.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: "Project with ID 42 not found."
+
+    patch:
+      summary: Update a project
+      description: Partially update an existing project. Only provided fields are changed.
+      operationId: update-project
+      tags:
+        - projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        description: The fields to update on the project.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Project updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+              example:
+                id: 1
+                name: Sprint 1
+                description: Updated sprint tasks
+                createdAt: "2026-02-12T15:04:05Z"
+                updatedAt: "2026-02-14T10:30:00Z"
+        default:
+          description: Validation, not found, or unexpected error when updating a project.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: "Project with ID 42 not found."
+
+    delete:
+      summary: Delete a project
+      description: Delete a project by its ID. TODOs in this project will be ungrouped.
+      operationId: delete-project
+      tags:
+        - projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Project deleted successfully.
+        default:
+          description: Not found or unexpected error when deleting a project.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: "Project with ID 42 not found."
+
+  /api/v1/projects/{projectId}/todos:
+    post:
+      summary: Add a TODO to a project
+      description: Create a new TODO item within the specified project.
+      operationId: add-project-todo
+      tags:
+        - projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdNested"
+      requestBody:
+        description: The TODO item to create within the project.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTodoRequest"
+      responses:
+        "201":
+          description: TODO added to project successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Todo"
+              example:
+                id: 1
+                title: Buy groceries
+                description: Milk, eggs, bread
+                status: pending
+                category: personal
+                progressPercent: 0
+                projectId: 1
+                createdAt: "2026-02-12T15:04:05Z"
+                updatedAt: "2026-02-12T15:04:05Z"
+        default:
+          description: Validation or unexpected error when adding a TODO to a project.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: "Project with ID 42 not found."
+
+  /api/v1/projects/{projectId}/todos/{todoId}:
+    patch:
+      summary: Update a TODO in a project
+      description: Partially update an existing TODO item within the specified project.
+      operationId: update-project-todo
+      tags:
+        - projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdNested"
+        - $ref: "#/components/parameters/TodoIdNested"
+      requestBody:
+        description: The fields to update on the TODO item within the project.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTodoRequest"
+      responses:
+        "200":
+          description: Project TODO updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Todo"
+              example:
+                id: 1
+                title: Buy groceries
+                description: Milk, eggs, bread, butter
+                status: in_progress
+                category: personal
+                progressPercent: 50
+                projectId: 1
+                createdAt: "2026-02-12T15:04:05Z"
+                updatedAt: "2026-02-14T10:30:00Z"
+        default:
+          description: Validation, not found, or unexpected error when updating a project TODO.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: "TODO with ID 42 not found in project 1."
+
+    delete:
+      summary: Remove a TODO from a project
+      description: Remove a TODO item from the specified project.
+      operationId: remove-project-todo
+      tags:
+        - projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdNested"
+        - $ref: "#/components/parameters/TodoIdNested"
+      responses:
+        "204":
+          description: TODO removed from project successfully.
+        default:
+          description: Not found or unexpected error when removing a project TODO.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: "TODO with ID 42 not found in project 1."
+
   /api/v1/todos:
     get:
       summary: List all TODOs
-      description: Retrieve all TODO items, optionally filtered by status and/or category.
+      description: Retrieve all TODO items, optionally filtered by status, category, and/or project.
       operationId: list-todos
       tags:
         - todos
@@ -37,6 +333,13 @@ paths:
           required: false
           schema:
             $ref: "#/components/schemas/TodoCategory"
+        - name: projectId
+          in: query
+          description: Filter by project ID
+          required: false
+          schema:
+            type: integer
+            format: int64
       responses:
         "200":
           description: Successful response with list of TODOs.
@@ -224,7 +527,141 @@ components:
         examples:
           - 1
 
+    ProjectId:
+      name: id
+      in: path
+      description: Project ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        examples:
+          - 1
+
+    ProjectIdNested:
+      name: projectId
+      in: path
+      description: Parent project ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        examples:
+          - 1
+
+    TodoIdNested:
+      name: todoId
+      in: path
+      description: TODO item ID within a project
+      required: true
+      schema:
+        type: integer
+        format: int64
+        examples:
+          - 1
+
   schemas:
+    Project:
+      type: object
+      description: A project that groups related TODO items.
+      required:
+        - id
+        - name
+        - description
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          examples:
+            - 1
+        name:
+          type: string
+          examples:
+            - Sprint 1
+        description:
+          type: string
+          examples:
+            - First sprint tasks
+        todos:
+          type: array
+          description: TODOs belonging to this project. Populated by GetProject only.
+          items:
+            $ref: "#/components/schemas/Todo"
+          example:
+            - id: 1
+              title: Buy groceries
+              description: Milk, eggs, bread
+              status: pending
+              category: personal
+              progressPercent: 0
+              projectId: 1
+              createdAt: "2026-02-12T15:04:05Z"
+              updatedAt: "2026-02-12T15:04:05Z"
+        createdAt:
+          type: string
+          format: date-time
+          examples:
+            - "2026-02-12T15:04:05Z"
+        updatedAt:
+          type: string
+          format: date-time
+          examples:
+            - "2026-02-12T15:04:05Z"
+
+    ProjectListResponse:
+      type: object
+      description: Response containing a list of projects with a total count.
+      required:
+        - projects
+        - count
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+          example:
+            - id: 1
+              name: Sprint 1
+              description: First sprint tasks
+              createdAt: "2026-02-12T15:04:05Z"
+              updatedAt: "2026-02-12T15:04:05Z"
+        count:
+          type: integer
+          format: int64
+          examples:
+            - 3
+
+    CreateProjectRequest:
+      type: object
+      description: Request body for creating a new project.
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          examples:
+            - Sprint 1
+        description:
+          type: string
+          examples:
+            - First sprint tasks
+
+    UpdateProjectRequest:
+      type: object
+      description: Request body for updating an existing project. All fields are optional.
+      properties:
+        name:
+          type: string
+          examples:
+            - Sprint 1
+        description:
+          type: string
+          examples:
+            - Updated sprint tasks
+
     Todo:
       type: object
       description: A TODO item with progress tracking.
@@ -266,6 +703,14 @@ components:
           maximum: 100
           examples:
             - 0
+        projectId:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: ID of the project this TODO belongs to, or null if ungrouped.
+          examples:
+            - 1
         createdAt:
           type: string
           format: date-time
@@ -307,6 +752,12 @@ components:
           maximum: 100
           examples:
             - 0
+        projectId:
+          type: integer
+          format: int64
+          description: ID of the project to assign this TODO to.
+          examples:
+            - 1
 
     UpdateTodoRequest:
       type: object
@@ -335,6 +786,14 @@ components:
           maximum: 100
           examples:
             - 50
+        projectId:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: ID of the project to assign this TODO to, or null to ungrouped.
+          examples:
+            - 1
 
     TodoListResponse:
       type: object

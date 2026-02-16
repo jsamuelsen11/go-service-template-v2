@@ -151,7 +151,7 @@ func TestTodoCategory_String(t *testing.T) {
 	}
 }
 
-const msgRequired = "is required"
+func int64Ptr(v int64) *int64 { return &v }
 
 func validTodo() Todo {
 	return Todo{
@@ -278,6 +278,28 @@ func TestTodo_Validate(t *testing.T) {
 			modify:  func(td *Todo) { td.Category = CategoryWork },
 			wantErr: false,
 		},
+		{
+			name:    "nil project ID passes (ungrouped)",
+			modify:  func(td *Todo) { td.ProjectID = nil },
+			wantErr: false,
+		},
+		{
+			name:    "positive project ID passes",
+			modify:  func(td *Todo) { td.ProjectID = int64Ptr(1) },
+			wantErr: false,
+		},
+		{
+			name:      "zero project ID fails",
+			modify:    func(td *Todo) { td.ProjectID = int64Ptr(0) },
+			wantErr:   true,
+			wantField: "project_id",
+		},
+		{
+			name:      "negative project ID fails",
+			modify:    func(td *Todo) { td.ProjectID = int64Ptr(-5) },
+			wantErr:   true,
+			wantField: "project_id",
+		},
 	}
 
 	for _, tt := range tests {
@@ -306,6 +328,7 @@ func TestTodo_Validate_MultipleErrors(t *testing.T) {
 		Status:          "bad",
 		Category:        "bad",
 		ProgressPercent: 200,
+		ProjectID:       int64Ptr(0),
 	}
 
 	err := td.Validate()
@@ -318,7 +341,7 @@ func TestTodo_Validate_MultipleErrors(t *testing.T) {
 		t.Fatalf("errors.As(err, *ValidationError) = false, got %T", err)
 	}
 
-	expectedFields := []string{"title", "description", "status", "category", "progress_percent"}
+	expectedFields := []string{"title", "description", "status", "category", "progress_percent", "project_id"}
 	for _, field := range expectedFields {
 		if _, ok := verr.Fields[field]; !ok {
 			t.Errorf("ValidationError.Fields missing key %q, got %v", field, verr.Fields)

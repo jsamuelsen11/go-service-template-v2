@@ -540,7 +540,7 @@ The template distinguishes between two types of services:
 | **Purpose**      | Orchestrates workflows          | Encapsulates pure business logic |
 | **Dependencies** | Ports, domain services, logging | None (pure functions)            |
 | **I/O**          | Yes (via ports)                 | Never                            |
-| **Example**      | `TodoService.GetTodo()`         | `Todo.Validate()`                |
+| **Example**      | `ProjectService.GetProject()`   | `Todo.Validate()`                |
 
 **Application Services (Use Cases):**
 
@@ -548,19 +548,19 @@ Application services coordinate multiple domain operations, call external servic
 handle logging/tracing, and manage transactions.
 
 ```go
-// internal/app/todo_service.go - Application Service
-func (s *TodoService) GetTodo(ctx context.Context, id int64) (*domain.Todo, error) {
-    s.logger.InfoContext(ctx, "fetching todo", slog.Int64("id", id))
+// internal/app/project_service.go - Application Service
+func (s *ProjectService) GetProject(ctx context.Context, id int64) (*domain.Project, error) {
+    s.logger.InfoContext(ctx, "fetching project", slog.Int64("id", id))
 
     // Orchestrates: calls port, handles errors, logs
-    todo, err := s.todoClient.GetTodo(ctx, id)
+    project, err := s.todoClient.GetProject(ctx, id)
     if err != nil {
-        s.logger.ErrorContext(ctx, "failed to fetch todo",
+        s.logger.ErrorContext(ctx, "failed to fetch project",
             slog.Int64("id", id), slog.Any("error", err))
         return nil, err
     }
 
-    return todo, nil
+    return project, nil
 }
 ```
 
@@ -609,9 +609,9 @@ when you're unsure where code belongs.
 
 ```go
 // ❌ WRONG - Domain layer calling infrastructure
-// internal/domain/todo.go
-func (t *Todo) ValidateUnique(ctx context.Context, repo TodoRepository) error {
-    existing, _ := repo.GetByTitle(ctx, t.Title) // Domain depends on I/O!
+// internal/domain/project.go
+func (p *Project) ValidateUnique(ctx context.Context, repo ProjectRepository) error {
+    existing, _ := repo.GetByName(ctx, p.Name) // Domain depends on I/O!
     if existing != nil {
         return ErrConflict
     }
@@ -619,21 +619,21 @@ func (t *Todo) ValidateUnique(ctx context.Context, repo TodoRepository) error {
 }
 
 // ✅ RIGHT - Application layer orchestrates, domain defines rules and errors
-// internal/app/todo_service.go
-func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
-    if err := todo.Validate(); err != nil { // Domain: pure validation
-        return err
+// internal/app/project_service.go
+func (s *ProjectService) CreateProject(ctx context.Context, project *domain.Project) (*domain.Project, error) {
+    if err := project.Validate(); err != nil { // Domain: pure validation
+        return nil, err
     }
 
-    existing, err := s.todoClient.GetByTitle(ctx, todo.Title) // App: I/O via port
+    existing, err := s.todoClient.GetByName(ctx, project.Name) // App: I/O via port
     if err != nil && !errors.Is(err, domain.ErrNotFound) {
-        return err
+        return nil, err
     }
     if existing != nil {
-        return domain.ErrConflict // Domain: defines the error type
+        return nil, domain.ErrConflict // Domain: defines the error type
     }
 
-    return s.todoClient.Create(ctx, todo)
+    return s.todoClient.CreateProject(ctx, project)
 }
 ```
 
@@ -641,16 +641,16 @@ func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
 
 ```go
 // ❌ WRONG - Business rule lives in the application layer
-// internal/app/todo_service.go
-func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
-    project, _ := s.projectClient.GetByID(ctx, todo.ProjectID)
-    todos, _ := s.todoClient.ListByProject(ctx, todo.ProjectID)
+// internal/app/project_service.go
+func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, todo *domain.Todo) (*domain.Todo, error) {
+    project, _ := s.todoClient.GetProject(ctx, projectID)
+    todos, _ := s.todoClient.GetProjectTodos(ctx, projectID, domain.TodoFilter{})
 
     if len(todos) >= project.MaxTodos { // Business rule in application layer!
-        return domain.ErrValidation
+        return nil, domain.ErrValidation
     }
 
-    return s.todoClient.Create(ctx, todo)
+    return s.todoClient.CreateTodo(ctx, todo)
 }
 
 // ✅ RIGHT - Domain owns the rule, application layer orchestrates data fetching
@@ -662,23 +662,23 @@ func (p *Project) CanAddTodo(currentCount int) error {
     return nil
 }
 
-// internal/app/todo_service.go
-func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
-    project, err := s.projectClient.GetByID(ctx, todo.ProjectID)
+// internal/app/project_service.go
+func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, todo *domain.Todo) (*domain.Todo, error) {
+    project, err := s.todoClient.GetProject(ctx, projectID)
     if err != nil {
-        return err
+        return nil, err
     }
 
-    todos, err := s.todoClient.ListByProject(ctx, todo.ProjectID)
+    todos, err := s.todoClient.GetProjectTodos(ctx, projectID, domain.TodoFilter{})
     if err != nil {
-        return err
+        return nil, err
     }
 
     if err := project.CanAddTodo(len(todos)); err != nil { // Domain rule
-        return err
+        return nil, err
     }
 
-    return s.todoClient.Create(ctx, todo)
+    return s.todoClient.CreateTodo(ctx, todo)
 }
 ```
 
@@ -700,25 +700,26 @@ Application services coordinate multiple operations using two patterns:
 Simple, synchronous execution where each step must complete before the next:
 
 ```go
-func (s *TodoService) CreateTodoInProject(ctx context.Context, req CreateTodoRequest) (*Todo, error) {
+func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, todo *domain.Todo) (*domain.Todo, error) {
     // Step 1: Validate
-    if err := req.Validate(); err != nil {
+    if err := todo.Validate(); err != nil {
         return nil, err
     }
 
     // Step 2: Verify project exists
-    project, err := s.projectClient.GetByID(ctx, req.ProjectID)
+    _, err := s.todoClient.GetProject(ctx, projectID)
     if err != nil {
         return nil, fmt.Errorf("verifying project: %w", err)
     }
 
-    // Step 3: Create todo
-    todo, err := s.todoClient.Create(ctx, req.ToTodo(project.ID))
+    // Step 3: Create todo in project
+    todo.ProjectID = &projectID
+    created, err := s.todoClient.CreateTodo(ctx, todo)
     if err != nil {
         return nil, fmt.Errorf("creating todo: %w", err)
     }
 
-    return todo, nil
+    return created, nil
 }
 ```
 
@@ -769,29 +770,29 @@ When orchestrating multiple API calls, group related data fetches considering:
 2. **Failure Isolation**: Independent data can fail independently
 3. **Caching Strategy**: Use Request Context memoization for reused data
 
-##### Example: Todo Detail Aggregate
+##### Example: Project Detail Aggregate
 
 ```go
-// Todo aggregate: todo + sub-tasks + project
+// Project aggregate: project + todos
 // These are always needed together and must be consistent
-func (s *TodoService) GetTodoAggregate(ctx context.Context, todoID int64) (*TodoAggregate, error) {
+func (s *ProjectService) GetProject(ctx context.Context, id int64) (*domain.Project, error) {
     rc := appctx.New(ctx)
 
-    // Fetch todo (cached for subsequent use)
-    todo, err := rc.GetOrFetch("todo:"+fmt.Sprint(todoID), s.fetchTodo(todoID))
+    // Fetch project (cached for subsequent use)
+    project, err := rc.GetOrFetch("project:"+fmt.Sprint(id), s.fetchProject(id))
     if err != nil {
         return nil, err
     }
 
-    // Fetch related data
-    subtasks, _ := rc.GetOrFetch("subtasks:"+fmt.Sprint(todoID), s.fetchSubtasks(todoID))
-    project, _ := rc.GetOrFetch("project:"+todo.(*Todo).ProjectID, s.fetchProject)
+    // Fetch related todos
+    todos, err := rc.GetOrFetch("todos:project:"+fmt.Sprint(id), s.fetchProjectTodos(id))
+    if err != nil {
+        return nil, err
+    }
 
-    return &TodoAggregate{
-        Todo:     todo.(*Todo),
-        Subtasks: subtasks.([]*Todo),
-        Project:  project.(*Project),
-    }, nil
+    p := project.(*domain.Project)
+    p.Todos = todos.([]domain.Todo)
+    return p, nil
 }
 ```
 
@@ -867,13 +868,13 @@ func (p *PersonalProcessor) Category() domain.TodoCategory { return domain.Categ
 The application service selects the appropriate processor:
 
 ```go
-// app/todo_service.go
-type TodoService struct {
+// app/project_service.go
+type ProjectService struct {
     processors map[domain.TodoCategory]processors.TodoProcessor
     // ...
 }
 
-func (s *TodoService) ProcessTodo(ctx context.Context, todo *domain.Todo) error {
+func (s *ProjectService) ProcessTodo(ctx context.Context, todo *domain.Todo) error {
     proc, ok := s.processors[todo.Category]
     if !ok {
         return domain.ErrValidation
@@ -1670,20 +1671,20 @@ func main() {
     })
 
     // 4. Application services (depend on ports)
-    do.Provide(injector, func(i do.Injector) (*app.TodoService, error) {
+    do.Provide(injector, func(i do.Injector) (*app.ProjectService, error) {
         client := do.MustInvoke[ports.TodoClient](i)
         logger := do.MustInvoke[*slog.Logger](i)
-        return app.NewTodoService(client, logger), nil
+        return app.NewProjectService(client, logger), nil
     })
 
     // 5. HTTP handlers (depend on services)
-    do.Provide(injector, func(i do.Injector) (*handlers.TodoHandler, error) {
-        svc := do.MustInvoke[*app.TodoService](i)
-        return handlers.NewTodoHandler(svc), nil
+    do.Provide(injector, func(i do.Injector) (*handlers.ProjectHandler, error) {
+        svc := do.MustInvoke[*app.ProjectService](i)
+        return handlers.NewProjectHandler(svc), nil
     })
 
     // Resolve and start
-    handler := do.MustInvoke[*handlers.TodoHandler](injector)
+    handler := do.MustInvoke[*handlers.ProjectHandler](injector)
     // Wire HTTP server...
 }
 ```
