@@ -230,10 +230,11 @@ var ErrUnavailable = errors.New("unavailable")
 
 **Responsibilities:**
 
-- Orchestrate use cases by calling domain services/entities
-- Coordinate between domain and infrastructure (via ports)
-- Handle cross-cutting concerns (logging, tracing)
-- Manage transactions
+1. **Receive requests** via service port (called by inbound adapters/handlers)
+2. **Fetch data** by calling client ports (which resolve to ACL adapters → downstream APIs → domain entities)
+3. **Process data** by passing domain entities to domain services for business logic
+4. **Commit results** (persist via client ports, return responses, publish events)
+5. **Handle cross-cutting concerns** (logging, tracing, error wrapping)
 
 **What does NOT belong here:**
 
@@ -996,6 +997,7 @@ See [ADR-0001](./adr/0001-hexagonal-architecture.md#request-context-pattern-for-
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
 flowchart TB
     AppSvc["Application Service"]
+    DomSvc["Domain Service"]
 
     subgraph rc["RequestContext"]
         subgraph stage1["Stage 1: Fetch Data"]
@@ -1006,17 +1008,20 @@ flowchart TB
             GOF -->|"cache hit"| Cache
         end
 
-        subgraph stage2["Stage 2: Process Data"]
+        subgraph stage2["Stage 2: Process & Stage Writes"]
             AddAct["AddAction()"]
-            Queue[("Action Queue<br/>[]Action")]
-            AddAct -->|"stage"| Queue
         end
+
+        Queue[("Action Queue<br/>[]Action")]
+        AddAct -->|"stage"| Queue
 
         subgraph stage3["Stage 3: Commit"]
             Commit["Commit()"]
+            CliPort{{"Client Port"}}
             Success["Return nil"]
             Rollback["Rollback in<br/>reverse order"]
             Queue -->|"execute in order"| Commit
+            Commit -->|"execute via"| CliPort
             Commit -->|"all succeed"| Success
             Commit -->|"action fails"| Rollback
         end
@@ -1024,20 +1029,23 @@ flowchart TB
 
     Downstream(["Downstream Services"])
     FetchFn -->|"HTTP call"| Downstream
-    Commit -->|"HTTP calls"| Downstream
+    CliPort -->|"HTTP calls"| Downstream
 
     AppSvc -->|"① fetch"| GOF
     Cache -->|"return cached"| AppSvc
-    AppSvc -->|"② stage writes"| AddAct
+    AppSvc -->|"② process"| DomSvc
+    DomSvc -->|"stage writes"| AddAct
     AppSvc -->|"③ commit"| Commit
 
     style AppSvc fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style DomSvc fill:#84cc16,stroke:#65a30d,color:#fff
     style GOF fill:#f59e0b,stroke:#d97706,color:#fff
     style Cache fill:#f59e0b,stroke:#d97706,color:#fff
     style FetchFn fill:#f59e0b,stroke:#d97706,color:#fff
     style AddAct fill:#f59e0b,stroke:#d97706,color:#fff
     style Queue fill:#f59e0b,stroke:#d97706,color:#fff
     style Commit fill:#f59e0b,stroke:#d97706,color:#fff
+    style CliPort fill:#a855f7,stroke:#9333ea,color:#fff
     style Downstream fill:#64748b,stroke:#475569,color:#fff
     style Success fill:#84cc16,stroke:#65a30d,color:#fff
     style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
@@ -1049,16 +1057,18 @@ flowchart TB
 
 **Legend:**
 
-| Element                                                        | Meaning                          |
-| -------------------------------------------------------------- | -------------------------------- |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue  | Application service              |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations        |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray  | Downstream services              |
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime  | Success path                     |
-| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red   | Rollback / error path            |
-| Circle (`((...))`)                                             | In-memory storage (cache, queue) |
-| Stadium (`([...])`)                                            | External I/O boundary            |
-| Dashed border                                                  | Stage boundary                   |
+| Element                                                         | Meaning                          |
+| --------------------------------------------------------------- | -------------------------------- |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application service              |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain service / success path    |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface)                 |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber  | RequestContext operations        |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | Downstream services              |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red    | Rollback / error path            |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary        |
+| Circle (`((...))`)                                              | In-memory storage (cache, queue) |
+| Stadium (`([...])`)                                             | External I/O boundary            |
+| Dashed border                                                   | Stage boundary                   |
 
 **`DataProvider` Interface:**
 

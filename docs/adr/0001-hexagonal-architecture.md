@@ -137,7 +137,12 @@ flowchart LR
 | Solid arrow (`-->`)                                             | Data / request flow          |
 | Dashed arrow (`-.->`)                                           | Dependency or implements     |
 
-### Dependency Rule: Always Inward
+### Request Lifecycle
+
+> **Note:** Compile-time dependencies always point inward (adapters → ports → domain).
+> At runtime, data naturally flows inward with the request and back outward with
+> the response. The numbered steps below show the full request lifecycle, not just
+> dependency direction.
 
 ```mermaid
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
@@ -150,6 +155,7 @@ flowchart TB
     ACL["ACL Client + Translator"]
     Downstream(["Downstream Service"])
     Entity["Domain Entity"]
+    DomSvc["Domain Service"]
 
     Client -->|"① request"| Handler
     Handler -->|"②"| SvcPort
@@ -158,7 +164,10 @@ flowchart TB
     CliPort -->|"⑤"| ACL
     ACL -->|"⑥"| Downstream
     ACL -->|"⑦ translates to"| Entity
-    Entity -->|"⑧ returned to"| AppSvc
+    Entity -.->|"⑧ returned to"| AppSvc
+    AppSvc -->|"⑨ passes entity"| DomSvc
+    DomSvc -.->|"⑩ processed result"| AppSvc
+    AppSvc -.->|"⑪ response"| Client
 
     classDef external fill:#64748b,stroke:#475569,color:#fff
     classDef adapter fill:#10b981,stroke:#059669,color:#fff
@@ -170,21 +179,53 @@ flowchart TB
     class Handler,ACL adapter
     class AppSvc app
     class SvcPort,CliPort ports
-    class Entity domain
+    class Entity,DomSvc domain
 ```
 
 **Legend:**
 
-| Element                                                         | Meaning                              |
-| --------------------------------------------------------------- | ------------------------------------ |
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain                               |
-| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces)                   |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application                          |
-| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | Adapters                             |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | External                             |
-| Hexagon (`{{...}}`)                                             | Port / interface boundary            |
-| Stadium (`([...])`)                                             | System boundary (entry/exit)         |
-| Numbered arrows                                                 | Dependency direction (always inward) |
+| Element                                                         | Meaning                      |
+| --------------------------------------------------------------- | ---------------------------- |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain (entities, services)  |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Ports (interfaces)           |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application                  |
+| ![#10b981](https://placehold.co/15x15/10b981/10b981.png) Teal   | Adapters                     |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | External                     |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary    |
+| Stadium (`([...])`)                                             | System boundary (entry/exit) |
+| Solid arrow (`-->`)                                             | Call / dependency direction  |
+| Dashed arrow (`-.->`)                                           | Return data flow             |
+
+### Application Services vs Domain Services
+
+The architecture distinguishes between two types of services with fundamentally different responsibilities:
+
+**Application Service** (`/internal/app/`) -- Use case orchestrator.
+Contains **zero business logic**. Its responsibilities are:
+
+1. **Receive requests** via service port (called by inbound adapters/handlers)
+2. **Fetch data** by calling client ports (which resolve to ACL adapters → downstream APIs → domain entities)
+3. **Process data** by passing domain entities to domain services for business logic
+4. **Commit results** (persist via client ports, return responses, publish events)
+5. **Handle cross-cutting concerns** (logging, tracing, error wrapping)
+
+**Domain Service** (`/internal/domain/`) -- Pure business logic. Has **zero
+infrastructure dependencies** (no I/O, no logging, no external packages).
+Receives domain entities, applies business rules, and returns results.
+Can be tested without mocks.
+
+**The orchestration pattern:**
+
+```text
+Application Service (orchestrator)
+  ├── calls Client Port → gets Domain Entities from downstream
+  ├── calls Domain Service → processes entities with business logic
+  └── commits results (via Client Port)
+```
+
+The Application Service is the glue that moves domain entities to the appropriate
+domain services. It decides **what** happens and **in what order**, while domain
+services decide **how** business rules are applied.
 
 ### Anti-Corruption Layer: Containing External Change
 
@@ -195,13 +236,17 @@ The ACL acts as a protective boundary. When downstream services change, the impa
 ```mermaid
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
 flowchart TB
-    App["Application Service<br/>✅ No changes"]
-    Port{{"Client Port<br/>✅ No changes"}}
-    Client["ACL Client<br/>✏️ Updated"]
+    App["Application Service<br/>✅ No changes<br/><i>(orchestration + business logic)</i>"]
+    Port{{"Client Port<br/>✅ No changes<br/><i>(stable interface)</i>"}}
+    Entity["Domain Entity<br/>✅ No changes<br/><i>(core domain model)</i>"]
+
+    subgraph blast["🎯 Blast Radius — Adapter Layer Only"]
+        Client["ACL Client<br/>✏️ Updated<br/><i>(HTTP mapping)</i>"]
+        DTO["External DTO<br/>✏️ Updated<br/><i>(struct fields)</i>"]
+        Translator["ACL Translator<br/>✏️ Updated<br/><i>(field mapping)</i>"]
+    end
+
     API["Downstream API<br/>v1 → v2"]
-    DTO["External DTO<br/>✏️ Updated"]
-    Translator["ACL Translator<br/>✏️ Updated"]
-    Entity["Domain Entity<br/>✅ No changes"]
 
     App -->|"① calls"| Port
     Port -.->|"② implemented by"| Client
@@ -218,7 +263,15 @@ flowchart TB
     class App,Port,Entity unchanged
     class Client,DTO,Translator changed
     class API external
+    style blast fill:none,stroke:#f59e0b,stroke-width:2px,stroke-dasharray: 5 5
 ```
+
+> **Effort perspective:** The three updated components inside the blast radius are
+> thin translation layers -- typically a few lines of struct field mapping each.
+> The protected components (Application Service, Client Port, Domain Entity)
+> contain all business logic, domain rules, and orchestration, representing the
+> vast majority of application code. This is the key benefit: **external API
+> changes only touch lightweight adapter plumbing, never your core logic.**
 
 **Legend:**
 
@@ -228,6 +281,7 @@ flowchart TB
 | ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | Updated (adapter layer only)          |
 | ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red   | External API change (trigger)         |
 | Hexagon (`{{...}}`)                                            | Port / interface boundary             |
+| Dashed border                                                  | Blast radius boundary                 |
 
 #### Scenario: Swapping Downstream Provider Entirely
 
@@ -454,6 +508,7 @@ flowchart TB
 
     subgraph domain["Domain Layer"]
         Entity["Partner Entity<br/>✅ Same domain model<br/>regardless of API version"]
+        DomSvc["Domain Service<br/>Processes entities"]
     end
 
     V1 --> A1Client
@@ -463,15 +518,12 @@ flowchart TB
     V3 --> A3Client
     A3Client --> A3Trans
 
-    A1Trans -->|"produces"| Entity
-    A2Trans -->|"produces"| Entity
-    A3Trans -->|"produces"| Entity
-
-    Entity -->|"returned via"| Port
-
     A1Trans -.->|"implements"| Port
     A2Trans -.->|"implements"| Port
     A3Trans -.->|"implements"| Port
+
+    Port -->|"produces"| Entity
+    Entity -->|"processed by"| DomSvc
 
     style V1 fill:#64748b,stroke:#475569,color:#fff
     style V2 fill:#10b981,stroke:#059669,color:#fff
@@ -487,6 +539,7 @@ flowchart TB
     style a3 fill:none,stroke:#0ea5e9,stroke-dasharray: 5 5
     style Port fill:#a855f7,stroke:#9333ea,color:#fff
     style Entity fill:#84cc16,stroke:#65a30d,color:#fff
+    style DomSvc fill:#84cc16,stroke:#65a30d,color:#fff
 ```
 
 **Legend:**
@@ -672,6 +725,7 @@ with automatic rollback (`Commit`).
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
 flowchart TB
     AppSvc["Application Service"]
+    DomSvc["Domain Service"]
 
     subgraph rc["RequestContext"]
         subgraph stage1["Stage 1: Fetch Data"]
@@ -682,17 +736,20 @@ flowchart TB
             GOF -->|"cache hit"| Cache
         end
 
-        subgraph stage2["Stage 2: Process Data"]
+        subgraph stage2["Stage 2: Process & Stage Writes"]
             AddAct["AddAction()"]
-            Queue[("Action Queue<br/>[]Action")]
-            AddAct -->|"stage"| Queue
         end
+
+        Queue[("Action Queue<br/>[]Action")]
+        AddAct -->|"stage"| Queue
 
         subgraph stage3["Stage 3: Commit"]
             Commit["Commit()"]
+            CliPort{{"Client Port"}}
             Success["Return nil"]
             Rollback["Rollback in<br/>reverse order"]
             Queue -->|"execute in order"| Commit
+            Commit -->|"execute via"| CliPort
             Commit -->|"all succeed"| Success
             Commit -->|"action fails"| Rollback
         end
@@ -700,20 +757,23 @@ flowchart TB
 
     Downstream(["Downstream Services"])
     FetchFn -->|"HTTP call"| Downstream
-    Commit -->|"HTTP calls"| Downstream
+    CliPort -->|"HTTP calls"| Downstream
 
     AppSvc -->|"① fetch"| GOF
     Cache -->|"return cached"| AppSvc
-    AppSvc -->|"② stage writes"| AddAct
+    AppSvc -->|"② process"| DomSvc
+    DomSvc -->|"stage writes"| AddAct
     AppSvc -->|"③ commit"| Commit
 
     style AppSvc fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style DomSvc fill:#84cc16,stroke:#65a30d,color:#fff
     style GOF fill:#f59e0b,stroke:#d97706,color:#fff
     style Cache fill:#f59e0b,stroke:#d97706,color:#fff
     style FetchFn fill:#f59e0b,stroke:#d97706,color:#fff
     style AddAct fill:#f59e0b,stroke:#d97706,color:#fff
     style Queue fill:#f59e0b,stroke:#d97706,color:#fff
     style Commit fill:#f59e0b,stroke:#d97706,color:#fff
+    style CliPort fill:#a855f7,stroke:#9333ea,color:#fff
     style Downstream fill:#64748b,stroke:#475569,color:#fff
     style Success fill:#84cc16,stroke:#65a30d,color:#fff
     style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
@@ -725,16 +785,18 @@ flowchart TB
 
 **Legend:**
 
-| Element                                                        | Meaning                          |
-| -------------------------------------------------------------- | -------------------------------- |
-| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue  | Application service              |
-| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber | RequestContext operations        |
-| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray  | Downstream services              |
-| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime  | Success path                     |
-| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red   | Rollback / error path            |
-| Circle (`((...))`)                                             | In-memory storage (cache, queue) |
-| Stadium (`([...])`)                                            | External I/O boundary            |
-| Dashed border                                                  | Stage boundary                   |
+| Element                                                         | Meaning                          |
+| --------------------------------------------------------------- | -------------------------------- |
+| ![#0ea5e9](https://placehold.co/15x15/0ea5e9/0ea5e9.png) Blue   | Application service              |
+| ![#84cc16](https://placehold.co/15x15/84cc16/84cc16.png) Lime   | Domain service / success path    |
+| ![#a855f7](https://placehold.co/15x15/a855f7/a855f7.png) Purple | Port (interface)                 |
+| ![#f59e0b](https://placehold.co/15x15/f59e0b/f59e0b.png) Amber  | RequestContext operations        |
+| ![#64748b](https://placehold.co/15x15/64748b/64748b.png) Gray   | Downstream services              |
+| ![#ef4444](https://placehold.co/15x15/ef4444/ef4444.png) Red    | Rollback / error path            |
+| Hexagon (`{{...}}`)                                             | Port / interface boundary        |
+| Circle (`((...))`)                                              | In-memory storage (cache, queue) |
+| Stadium (`([...])`)                                             | External I/O boundary            |
+| Dashed border                                                   | Stage boundary                   |
 
 See [ARCHITECTURE.md > Request Context Pattern](../ARCHITECTURE.md#request-context-pattern) for
 component reference, code examples, and implementation guidance.
