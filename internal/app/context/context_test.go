@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
 
 const testFetchValue = "hello"
@@ -553,7 +555,7 @@ func TestActionGroup_EmptyGroup(t *testing.T) {
 func TestActionGroup_Description_Multiple(t *testing.T) {
 	t.Parallel()
 	g := &actionGroup{
-		actions: []Action{
+		actions: []domain.Action{
 			&testAction{desc: "first"},
 			&testAction{desc: "second"},
 		},
@@ -568,7 +570,7 @@ func TestActionGroup_Description_Multiple(t *testing.T) {
 
 func TestActionGroup_Description_Single(t *testing.T) {
 	t.Parallel()
-	g := &actionGroup{actions: []Action{&testAction{desc: "only"}}}
+	g := &actionGroup{actions: []domain.Action{&testAction{desc: "only"}}}
 
 	if g.description() != "only" {
 		t.Fatalf("got %q, want %q", g.description(), "only")
@@ -732,5 +734,215 @@ func TestGetOrFetch_WorksAfterCommit(t *testing.T) {
 	}
 	if val != "after" {
 		t.Fatalf("got %q, want %q", val, "after")
+	}
+}
+
+// --- Stage tests ---
+
+func TestStage_UpdatesCacheAndQueuesAction(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+	a := &testAction{desc: "update-todo"}
+
+	// Pre-populate cache with original value.
+	_, _ = GetOrFetch(rc, "todo:1", func(_ context.Context) (string, error) {
+		return "original", nil
+	})
+
+	err := rc.Stage("todo:1", "updated", a)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify cache was updated (read-your-writes).
+	val, err := GetOrFetch(rc, "todo:1", func(_ context.Context) (string, error) {
+		t.Fatal("fetchFn should not be called after Stage")
+		return "", nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != "updated" {
+		t.Fatalf("got %q, want %q", val, "updated")
+	}
+
+	// Verify action was queued.
+	if len(rc.items) != 1 {
+		t.Fatalf("got %d items, want 1", len(rc.items))
+	}
+}
+
+func TestStage_OverwritesCachedError(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	// Cache an error for the key.
+	_, _ = GetOrFetch(rc, "todo:1", func(_ context.Context) (string, error) {
+		return "", errors.New("not found")
+	})
+
+	// Stage overwrites the error with a valid entity.
+	err := rc.Stage("todo:1", "recovered", &testAction{desc: "fix"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Subsequent GetOrFetch should return the staged value, not the error.
+	val, err := GetOrFetch(rc, "todo:1", func(_ context.Context) (string, error) {
+		t.Fatal("fetchFn should not be called")
+		return "", nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != "recovered" {
+		t.Fatalf("got %q, want %q", val, "recovered")
+	}
+}
+
+func TestStage_NewKey(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	// Stage a key that was never fetched.
+	err := rc.Stage("todo:new", "fresh", &testAction{desc: "create"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// GetOrFetch should return staged value without calling fetchFn.
+	val, err := GetOrFetch(rc, "todo:new", func(_ context.Context) (string, error) {
+		t.Fatal("fetchFn should not be called for staged key")
+		return "", nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != "fresh" {
+		t.Fatalf("got %q, want %q", val, "fresh")
+	}
+}
+
+func TestStage_NilAction(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	err := rc.Stage("key", "value", nil)
+	if !errors.Is(err, ErrNilAction) {
+		t.Fatalf("got %v, want ErrNilAction", err)
+	}
+	// Cache should NOT be updated.
+	if len(rc.cache) != 0 {
+		t.Fatal("cache should not be modified on nil action")
+	}
+}
+
+func TestStage_AfterCommit(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+	_ = rc.Commit(context.Background())
+
+	err := rc.Stage("key", "value", &testAction{desc: "late"})
+	if !errors.Is(err, ErrAlreadyCommitted) {
+		t.Fatalf("got %v, want ErrAlreadyCommitted", err)
+	}
+}
+
+func TestStage_MultipleStagesSameKey(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	_ = rc.Stage("todo:1", "v1", &testAction{desc: "first"})
+	_ = rc.Stage("todo:1", "v2", &testAction{desc: "second"})
+
+	// Latest staged value should win.
+	val, _ := GetOrFetch(rc, "todo:1", func(_ context.Context) (string, error) {
+		t.Fatal("should not call fetchFn")
+		return "", nil
+	})
+	if val != "v2" {
+		t.Fatalf("got %q, want %q", val, "v2")
+	}
+
+	// Both actions should be queued.
+	if len(rc.items) != 2 {
+		t.Fatalf("got %d items, want 2", len(rc.items))
+	}
+}
+
+func TestStage_StagedEntityExecutedOnCommit(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+	a := &testAction{desc: "staged-action"}
+
+	_ = rc.Stage("key", "entity", a)
+	err := rc.Commit(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !a.executed {
+		t.Fatal("staged action was not executed on commit")
+	}
+}
+
+// --- Execute tests ---
+
+func TestExecute_RunsImmediately(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+	a := &testAction{desc: "immediate"}
+
+	err := rc.Execute(a)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !a.executed {
+		t.Fatal("action was not executed")
+	}
+}
+
+func TestExecute_DoesNotAddToQueue(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	_ = rc.Execute(&testAction{desc: "immediate"})
+	if len(rc.items) != 0 {
+		t.Fatalf("got %d items, want 0", len(rc.items))
+	}
+}
+
+func TestExecute_ReturnsError(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+	execErr := errors.New("execute failed")
+
+	err := rc.Execute(&testAction{desc: "fail", executeErr: execErr})
+	if !errors.Is(err, execErr) {
+		t.Fatalf("got %v, want %v", err, execErr)
+	}
+}
+
+func TestExecute_WorksAfterCommit(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+	_ = rc.Commit(context.Background())
+
+	a := &testAction{desc: "post-commit"}
+	err := rc.Execute(a)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !a.executed {
+		t.Fatal("execute should work after commit")
+	}
+}
+
+func TestExecute_NilAction(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	err := rc.Execute(nil)
+	if !errors.Is(err, ErrNilAction) {
+		t.Fatalf("got %v, want ErrNilAction", err)
 	}
 }

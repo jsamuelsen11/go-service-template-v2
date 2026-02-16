@@ -22,7 +22,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
+
+// Compile-time check that RequestContext implements domain.WriteStager.
+var _ domain.WriteStager = (*RequestContext)(nil)
 
 // ErrAlreadyCommitted is returned when AddAction, AddGroup, or Commit is
 // called on a RequestContext that has already been committed.
@@ -115,4 +120,38 @@ func NewDataProvider[T any](key string, fetchFn func(ctx context.Context) (T, er
 // fetch function.
 func (p *DataProvider[T]) Get(rc *RequestContext) (T, error) {
 	return GetOrFetch(rc, p.key, p.fetchFn)
+}
+
+// Stage updates the in-memory cache for the given key with the provided
+// entity and queues the action for execution during Commit. This provides
+// read-your-writes consistency: subsequent GetOrFetch calls for the same
+// key will return the staged entity rather than re-fetching.
+//
+// Returns ErrNilAction if action is nil, or ErrAlreadyCommitted if the
+// RequestContext has already been committed.
+func (rc *RequestContext) Stage(key string, entity any, action domain.Action) error {
+	if action == nil {
+		return ErrNilAction
+	}
+	if rc.committed {
+		return ErrAlreadyCommitted
+	}
+	rc.cache[key] = cacheEntry{value: entity, err: nil}
+	rc.items = append(rc.items, &singleAction{action: action})
+	return nil
+}
+
+// Execute runs an action immediately, independent of the commit queue.
+// The action is NOT added to the staged items and will NOT participate
+// in Commit's execution or rollback sequence.
+//
+// Execute uses the RequestContext's embedded context for the action.
+// Returns ErrNilAction if action is nil. Unlike Stage and AddAction,
+// Execute works after the RequestContext has been committed, since it
+// is independent of the queue.
+func (rc *RequestContext) Execute(action domain.Action) error {
+	if action == nil {
+		return ErrNilAction
+	}
+	return action.Execute(rc.Context)
 }

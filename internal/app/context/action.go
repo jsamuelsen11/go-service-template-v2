@@ -5,25 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/platform/logging"
 )
-
-// Action represents a single executable operation with rollback capability.
-// Implementations should be idempotent where possible to support safe retries.
-type Action interface {
-	// Execute performs the action. The context carries cancellation and
-	// deadline signals that the implementation should respect.
-	Execute(ctx context.Context) error
-
-	// Rollback reverses the effect of a previously successful Execute call.
-	// Rollback is only called if Execute returned nil. The context may
-	// differ from the one passed to Execute.
-	Rollback(ctx context.Context) error
-
-	// Description returns a human-readable description of the action for
-	// logging purposes (e.g., "mark todo 123 as done").
-	Description() string
-}
 
 // actionItem is the internal interface for executable items in the action
 // queue. Both single actions and action groups implement this interface.
@@ -33,9 +17,9 @@ type actionItem interface {
 	description() string
 }
 
-// singleAction wraps an Action to satisfy the actionItem interface.
+// singleAction wraps a domain.Action to satisfy the actionItem interface.
 type singleAction struct {
-	action Action
+	action domain.Action
 }
 
 func (s *singleAction) execute(ctx context.Context) error  { return s.action.Execute(ctx) }
@@ -46,8 +30,8 @@ func (s *singleAction) description() string                { return s.action.Des
 // fails, in-progress actions are canceled via context and successfully
 // completed actions are rolled back in reverse insertion order.
 type actionGroup struct {
-	actions   []Action
-	completed []Action
+	actions   []domain.Action
+	completed []domain.Action
 }
 
 func (g *actionGroup) execute(ctx context.Context) error {
@@ -66,7 +50,7 @@ func (g *actionGroup) execute(ctx context.Context) error {
 	results := make(chan result, len(g.actions))
 
 	for i, action := range g.actions {
-		go func(idx int, a Action) {
+		go func(idx int, a domain.Action) {
 			results <- result{index: idx, err: a.Execute(groupCtx)}
 		}(i, action)
 	}
@@ -137,7 +121,7 @@ func (g *actionGroup) description() string {
 // AddAction stages a single action for later execution by Commit.
 // Returns ErrNilAction if action is nil, or ErrAlreadyCommitted if the
 // RequestContext has already been committed.
-func (rc *RequestContext) AddAction(action Action) error {
+func (rc *RequestContext) AddAction(action domain.Action) error {
 	if action == nil {
 		return ErrNilAction
 	}
@@ -152,7 +136,7 @@ func (rc *RequestContext) AddAction(action Action) error {
 // All actions in the group execute concurrently when the group's turn
 // arrives during Commit. Returns ErrNilAction if any action is nil, or
 // ErrAlreadyCommitted if the RequestContext has already been committed.
-func (rc *RequestContext) AddGroup(actions ...Action) error {
+func (rc *RequestContext) AddGroup(actions ...domain.Action) error {
 	for _, a := range actions {
 		if a == nil {
 			return ErrNilAction
