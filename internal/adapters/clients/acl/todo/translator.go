@@ -1,4 +1,4 @@
-package acl
+package todo
 
 import (
 	"time"
@@ -6,9 +6,9 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
 
-// toDomainTodo converts a downstream todoDTO to a domain Todo entity.
+// ToDomainTodo converts a downstream todoDTO to a domain Todo entity.
 // Maps GroupID to ProjectID and parses RFC3339 timestamps.
-func toDomainTodo(dto *todoDTO) domain.Todo {
+func ToDomainTodo(dto *todoDTO) domain.Todo {
 	createdAt, _ := time.Parse(time.RFC3339, dto.CreatedAt)
 	updatedAt, _ := time.Parse(time.RFC3339, dto.UpdatedAt)
 
@@ -25,19 +25,19 @@ func toDomainTodo(dto *todoDTO) domain.Todo {
 	}
 }
 
-// toDomainTodoList converts a downstream todoListResponseDTO to a slice of
+// ToDomainTodoList converts a downstream todoListResponseDTO to a slice of
 // domain Todo entities.
-func toDomainTodoList(dto todoListResponseDTO) []domain.Todo {
+func ToDomainTodoList(dto todoListResponseDTO) []domain.Todo {
 	todos := make([]domain.Todo, len(dto.Todos))
 	for i := range dto.Todos {
-		todos[i] = toDomainTodo(&dto.Todos[i])
+		todos[i] = ToDomainTodo(&dto.Todos[i])
 	}
 	return todos
 }
 
-// toCreateTodoRequest converts a domain Todo entity to a downstream
+// ToCreateTodoRequest converts a domain Todo entity to a downstream
 // createTodoRequestDTO. Maps ProjectID to GroupID.
-func toCreateTodoRequest(todo *domain.Todo) createTodoRequestDTO {
+func ToCreateTodoRequest(todo *domain.Todo) createTodoRequestDTO {
 	return createTodoRequestDTO{
 		Title:           todo.Title,
 		Description:     todo.Description,
@@ -48,9 +48,9 @@ func toCreateTodoRequest(todo *domain.Todo) createTodoRequestDTO {
 	}
 }
 
-// toUpdateTodoRequest converts a domain Todo entity to a downstream
+// ToUpdateTodoRequest converts a domain Todo entity to a downstream
 // updateTodoRequestDTO. All fields are set (full replacement semantics).
-func toUpdateTodoRequest(todo *domain.Todo) updateTodoRequestDTO {
+func ToUpdateTodoRequest(todo *domain.Todo) updateTodoRequestDTO {
 	status := todo.Status.String()
 	category := todo.Category.String()
 	progress := int64(todo.ProgressPercent)

@@ -74,10 +74,10 @@ func TestTranslateHTTPError_StatusMapping(t *testing.T) {
 				Body:       http.NoBody,
 			}
 
-			got := translateHTTPError(resp)
+			got := TranslateHTTPError(resp)
 
 			if !errors.Is(got, tt.wantErr) {
-				t.Errorf("translateHTTPError() = %v, want errors.Is %v", got, tt.wantErr)
+				t.Errorf("TranslateHTTPError() = %v, want errors.Is %v", got, tt.wantErr)
 			}
 		})
 	}
@@ -126,7 +126,7 @@ func TestTranslateHTTPError_RFC7807Parsing(t *testing.T) {
 				Body:       io.NopCloser(strings.NewReader(tt.body)),
 			}
 
-			got := translateHTTPError(resp)
+			got := TranslateHTTPError(resp)
 
 			if !strings.Contains(got.Error(), tt.wantSubstr) {
 				t.Errorf("error = %q, want substring %q", got.Error(), tt.wantSubstr)
@@ -155,7 +155,7 @@ func TestTranslateHTTPError_ValidationErrorWithDetails(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
 
-	got := translateHTTPError(resp)
+	got := TranslateHTTPError(resp)
 
 	if !errors.Is(got, domain.ErrValidation) {
 		t.Fatalf("error is not ErrValidation: %v", got)
@@ -191,7 +191,7 @@ func TestTranslateHTTPError_ValidationErrorStripsBodyPrefix(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
 
-	got := translateHTTPError(resp)
+	got := TranslateHTTPError(resp)
 
 	var verr *domain.ValidationError
 	if !errors.As(got, &verr) {
@@ -212,7 +212,7 @@ func TestTranslateHTTPError_UnexpectedStatus(t *testing.T) {
 		Body:       http.NoBody,
 	}
 
-	got := translateHTTPError(resp)
+	got := TranslateHTTPError(resp)
 
 	if errors.Is(got, domain.ErrNotFound) ||
 		errors.Is(got, domain.ErrValidation) ||
@@ -236,7 +236,7 @@ func TestTranslateHTTPError_NilBody(t *testing.T) {
 		Body:       nil,
 	}
 
-	got := translateHTTPError(resp)
+	got := TranslateHTTPError(resp)
 
 	if !errors.Is(got, domain.ErrNotFound) {
 		t.Errorf("error is not ErrNotFound: %v", got)

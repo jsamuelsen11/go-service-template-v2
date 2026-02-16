@@ -1,4 +1,4 @@
-package acl
+package project
 
 import (
 	"testing"
@@ -89,7 +89,7 @@ func TestToDomainProject(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toDomainProject(tt.dto)
+			got := ToDomainProject(tt.dto)
 			tt.verify(t, got)
 		})
 	}
@@ -137,7 +137,7 @@ func TestToDomainProjectList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toDomainProjectList(tt.dto)
+			got := ToDomainProjectList(tt.dto)
 			if len(got) != tt.wantLen {
 				t.Fatalf("len = %d, want %d", len(got), tt.wantLen)
 			}
@@ -177,7 +177,7 @@ func TestToCreateGroupRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toCreateGroupRequest(tt.project)
+			got := ToCreateGroupRequest(tt.project)
 			tt.verify(t, got)
 		})
 	}
@@ -212,7 +212,7 @@ func TestToUpdateGroupRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toUpdateGroupRequest(tt.project)
+			got := ToUpdateGroupRequest(tt.project)
 			tt.verify(t, got)
 		})
 	}

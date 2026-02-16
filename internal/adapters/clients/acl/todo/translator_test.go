@@ -1,4 +1,4 @@
-package acl
+package todo
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ func TestToDomainTodo_FieldMapping(t *testing.T) {
 		UpdatedAt:       "2026-02-12T15:04:05Z",
 	}
 
-	got := toDomainTodo(dto)
+	got := ToDomainTodo(dto)
 
 	if got.ID != 42 {
 		t.Errorf("ID = %d, want 42", got.ID)
@@ -70,7 +70,7 @@ func TestToDomainTodo_GroupIDMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toDomainTodo(&todoDTO{
+			got := ToDomainTodo(&todoDTO{
 				GroupID:   tt.groupID,
 				CreatedAt: "2026-02-12T15:04:05Z",
 				UpdatedAt: "2026-02-12T15:04:05Z",
@@ -117,7 +117,7 @@ func TestToDomainTodo_Timestamps(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toDomainTodo(&todoDTO{
+			got := ToDomainTodo(&todoDTO{
 				CreatedAt: tt.createdAt,
 				UpdatedAt: tt.updatedAt,
 			})
@@ -134,7 +134,7 @@ func TestToDomainTodo_Timestamps(t *testing.T) {
 func TestToDomainTodo_ProgressPercent(t *testing.T) {
 	t.Parallel()
 
-	got := toDomainTodo(&todoDTO{
+	got := ToDomainTodo(&todoDTO{
 		ProgressPercent: 100,
 		CreatedAt:       "2026-02-12T15:04:05Z",
 		UpdatedAt:       "2026-02-12T15:04:05Z",
@@ -188,7 +188,7 @@ func TestToDomainTodoList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toDomainTodoList(tt.dto)
+			got := ToDomainTodoList(tt.dto)
 			if len(got) != tt.wantLen {
 				t.Fatalf("len = %d, want %d", len(got), tt.wantLen)
 			}
@@ -274,7 +274,7 @@ func TestToCreateTodoRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toCreateTodoRequest(tt.todo)
+			got := ToCreateTodoRequest(tt.todo)
 			tt.verify(t, got)
 		})
 	}
@@ -341,7 +341,7 @@ func TestToUpdateTodoRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := toUpdateTodoRequest(tt.todo)
+			got := ToUpdateTodoRequest(tt.todo)
 			tt.verify(t, got)
 		})
 	}

@@ -1,6 +1,6 @@
-// Package acl implements the Anti-Corruption Layer that translates between
-// downstream TODO API representations and domain types.
-package acl
+// Package todo implements the Anti-Corruption Layer translators for the
+// downstream TODO API's todo resources.
+package todo
 
 // todoDTO matches the downstream Todo schema.
 // Fields use int64 to match the OpenAPI spec's format: int64 annotation.

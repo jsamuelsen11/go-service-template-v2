@@ -1,3 +1,7 @@
+// Package acl implements the Anti-Corruption Layer that translates between
+// downstream TODO API representations and domain types. Domain-specific
+// translators live in subpackages (acl/todo, acl/project); shared error
+// mapping lives here.
 package acl
 
 import (
@@ -26,12 +30,12 @@ type errorDetail struct {
 	Message  string `json:"message"`
 }
 
-// translateHTTPError maps an HTTP error response to a domain error.
+// TranslateHTTPError maps an HTTP error response to a domain error.
 // It parses the response body as RFC 7807 when the content type is
 // application/problem+json, using the detail field for context.
 // For 400/422 responses with field-level errors, it returns a
 // *domain.ValidationError.
-func translateHTTPError(resp *http.Response) error {
+func TranslateHTTPError(resp *http.Response) error {
 	pd := parseProblemDetail(resp)
 
 	detail := pd.Detail

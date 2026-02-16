@@ -1,4 +1,6 @@
-package acl
+// Package project implements the Anti-Corruption Layer translators for the
+// downstream TODO API's group resources, which map to domain Projects.
+package project
 
 // groupDTO matches the downstream Group schema.
 type groupDTO struct {
