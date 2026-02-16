@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
 
 const testFetchValue = "hello"
@@ -553,7 +555,7 @@ func TestActionGroup_EmptyGroup(t *testing.T) {
 func TestActionGroup_Description_Multiple(t *testing.T) {
 	t.Parallel()
 	g := &actionGroup{
-		actions: []Action{
+		actions: []domain.Action{
 			&testAction{desc: "first"},
 			&testAction{desc: "second"},
 		},
@@ -568,7 +570,7 @@ func TestActionGroup_Description_Multiple(t *testing.T) {
 
 func TestActionGroup_Description_Single(t *testing.T) {
 	t.Parallel()
-	g := &actionGroup{actions: []Action{&testAction{desc: "only"}}}
+	g := &actionGroup{actions: []domain.Action{&testAction{desc: "only"}}}
 
 	if g.description() != "only" {
 		t.Fatalf("got %q, want %q", g.description(), "only")
