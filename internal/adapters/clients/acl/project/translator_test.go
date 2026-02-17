@@ -12,12 +12,12 @@ func TestToDomainProject(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		dto    groupDTO
+		dto    GroupDTO
 		verify func(t *testing.T, got domain.Project)
 	}{
 		{
 			name: "maps all fields",
-			dto: groupDTO{
+			dto: GroupDTO{
 				ID:          10,
 				Name:        "Sprint 1",
 				Description: "First sprint tasks",
@@ -39,7 +39,7 @@ func TestToDomainProject(t *testing.T) {
 		},
 		{
 			name: "parses RFC3339 timestamps",
-			dto: groupDTO{
+			dto: GroupDTO{
 				CreatedAt: "2026-02-12T15:04:05Z",
 				UpdatedAt: "2026-02-12T16:04:05Z",
 			},
@@ -57,7 +57,7 @@ func TestToDomainProject(t *testing.T) {
 		},
 		{
 			name: "invalid timestamp defaults to zero time",
-			dto: groupDTO{
+			dto: GroupDTO{
 				CreatedAt: "bad",
 				UpdatedAt: "",
 			},
@@ -73,7 +73,7 @@ func TestToDomainProject(t *testing.T) {
 		},
 		{
 			name: "Todos slice is nil by default",
-			dto: groupDTO{
+			dto: GroupDTO{
 				CreatedAt: "2026-02-12T15:04:05Z",
 				UpdatedAt: "2026-02-12T15:04:05Z",
 			},
@@ -100,14 +100,14 @@ func TestToDomainProjectList(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		dto       groupListResponseDTO
+		dto       GroupListResponseDTO
 		wantLen   int
 		wantFirst int64
 	}{
 		{
 			name: "converts multiple groups to projects",
-			dto: groupListResponseDTO{
-				Groups: []groupDTO{
+			dto: GroupListResponseDTO{
+				Groups: []GroupDTO{
 					{ID: 1, Name: "Sprint 1", CreatedAt: "2026-02-12T15:04:05Z", UpdatedAt: "2026-02-12T15:04:05Z"},
 					{ID: 2, Name: "Sprint 2", CreatedAt: "2026-02-12T15:04:05Z", UpdatedAt: "2026-02-12T15:04:05Z"},
 				},
@@ -118,15 +118,15 @@ func TestToDomainProjectList(t *testing.T) {
 		},
 		{
 			name: "empty list",
-			dto: groupListResponseDTO{
-				Groups: []groupDTO{},
+			dto: GroupListResponseDTO{
+				Groups: []GroupDTO{},
 				Count:  0,
 			},
 			wantLen: 0,
 		},
 		{
 			name: "nil groups slice",
-			dto: groupListResponseDTO{
+			dto: GroupListResponseDTO{
 				Groups: nil,
 				Count:  0,
 			},
@@ -154,7 +154,7 @@ func TestToCreateGroupRequest(t *testing.T) {
 	tests := []struct {
 		name    string
 		project *domain.Project
-		verify  func(t *testing.T, got createGroupRequestDTO)
+		verify  func(t *testing.T, got CreateGroupRequestDTO)
 	}{
 		{
 			name: "maps name and description",
@@ -162,7 +162,7 @@ func TestToCreateGroupRequest(t *testing.T) {
 				Name:        "Sprint 1",
 				Description: "First sprint tasks",
 			},
-			verify: func(t *testing.T, got createGroupRequestDTO) {
+			verify: func(t *testing.T, got CreateGroupRequestDTO) {
 				t.Helper()
 				if got.Name != "Sprint 1" {
 					t.Errorf("Name = %q, want %q", got.Name, "Sprint 1")
@@ -189,7 +189,7 @@ func TestToUpdateGroupRequest(t *testing.T) {
 	tests := []struct {
 		name    string
 		project *domain.Project
-		verify  func(t *testing.T, got updateGroupRequestDTO)
+		verify  func(t *testing.T, got UpdateGroupRequestDTO)
 	}{
 		{
 			name: "sets all fields as pointers",
@@ -197,7 +197,7 @@ func TestToUpdateGroupRequest(t *testing.T) {
 				Name:        "Updated Sprint",
 				Description: "Updated description",
 			},
-			verify: func(t *testing.T, got updateGroupRequestDTO) {
+			verify: func(t *testing.T, got UpdateGroupRequestDTO) {
 				t.Helper()
 				if got.Name == nil || *got.Name != "Updated Sprint" {
 					t.Errorf("Name = %v, want %q", got.Name, "Updated Sprint")

@@ -157,6 +157,18 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	return resp, err
 }
 
+// BaseURL returns the base URL configured for this client.
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
+// CircuitBreakerState returns the current circuit breaker state as a string
+// ("closed", "half-open", or "open"). Used by health checkers to report
+// downstream status without making a network call.
+func (c *Client) CircuitBreakerState() string {
+	return c.breaker.State().String()
+}
+
 // injectHeaders adds Request-ID and Correlation-ID headers to the outbound
 // request if present in the context.
 func (c *Client) injectHeaders(ctx context.Context, req *http.Request) {

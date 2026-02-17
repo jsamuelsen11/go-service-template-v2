@@ -12,7 +12,7 @@ func ptrInt64(v int64) *int64 { return &v }
 func TestToDomainTodo_FieldMapping(t *testing.T) {
 	t.Parallel()
 
-	dto := &todoDTO{
+	dto := &TodoDTO{
 		ID:              42,
 		Title:           "Buy groceries",
 		Description:     "Milk, eggs, bread",
@@ -70,7 +70,7 @@ func TestToDomainTodo_GroupIDMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := ToDomainTodo(&todoDTO{
+			got := ToDomainTodo(&TodoDTO{
 				GroupID:   tt.groupID,
 				CreatedAt: "2026-02-12T15:04:05Z",
 				UpdatedAt: "2026-02-12T15:04:05Z",
@@ -117,7 +117,7 @@ func TestToDomainTodo_Timestamps(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := ToDomainTodo(&todoDTO{
+			got := ToDomainTodo(&TodoDTO{
 				CreatedAt: tt.createdAt,
 				UpdatedAt: tt.updatedAt,
 			})
@@ -134,7 +134,7 @@ func TestToDomainTodo_Timestamps(t *testing.T) {
 func TestToDomainTodo_ProgressPercent(t *testing.T) {
 	t.Parallel()
 
-	got := ToDomainTodo(&todoDTO{
+	got := ToDomainTodo(&TodoDTO{
 		ProgressPercent: 100,
 		CreatedAt:       "2026-02-12T15:04:05Z",
 		UpdatedAt:       "2026-02-12T15:04:05Z",
@@ -150,14 +150,14 @@ func TestToDomainTodoList(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		dto       todoListResponseDTO
+		dto       TodoListResponseDTO
 		wantLen   int
 		wantFirst int64
 	}{
 		{
 			name: "converts multiple todos",
-			dto: todoListResponseDTO{
-				Todos: []todoDTO{
+			dto: TodoListResponseDTO{
+				Todos: []TodoDTO{
 					{ID: 1, CreatedAt: "2026-02-12T15:04:05Z", UpdatedAt: "2026-02-12T15:04:05Z"},
 					{ID: 2, CreatedAt: "2026-02-12T15:04:05Z", UpdatedAt: "2026-02-12T15:04:05Z"},
 					{ID: 3, CreatedAt: "2026-02-12T15:04:05Z", UpdatedAt: "2026-02-12T15:04:05Z"},
@@ -169,15 +169,15 @@ func TestToDomainTodoList(t *testing.T) {
 		},
 		{
 			name: "empty list",
-			dto: todoListResponseDTO{
-				Todos: []todoDTO{},
+			dto: TodoListResponseDTO{
+				Todos: []TodoDTO{},
 				Count: 0,
 			},
 			wantLen: 0,
 		},
 		{
 			name: "nil todos slice",
-			dto: todoListResponseDTO{
+			dto: TodoListResponseDTO{
 				Todos: nil,
 				Count: 0,
 			},
@@ -207,7 +207,7 @@ func TestToCreateTodoRequest(t *testing.T) {
 	tests := []struct {
 		name   string
 		todo   *domain.Todo
-		verify func(t *testing.T, got createTodoRequestDTO)
+		verify func(t *testing.T, got CreateTodoRequestDTO)
 	}{
 		{
 			name: "maps all fields",
@@ -219,7 +219,7 @@ func TestToCreateTodoRequest(t *testing.T) {
 				ProgressPercent: 50,
 				ProjectID:       &projectID,
 			},
-			verify: func(t *testing.T, got createTodoRequestDTO) {
+			verify: func(t *testing.T, got CreateTodoRequestDTO) {
 				t.Helper()
 				if got.Title != "Buy groceries" {
 					t.Errorf("Title = %q, want %q", got.Title, "Buy groceries")
@@ -245,7 +245,7 @@ func TestToCreateTodoRequest(t *testing.T) {
 				Category:  domain.CategoryWork,
 				ProjectID: &projectID,
 			},
-			verify: func(t *testing.T, got createTodoRequestDTO) {
+			verify: func(t *testing.T, got CreateTodoRequestDTO) {
 				t.Helper()
 				if got.GroupID == nil {
 					t.Fatal("GroupID is nil, want non-nil")
@@ -262,7 +262,7 @@ func TestToCreateTodoRequest(t *testing.T) {
 				Category:  domain.CategoryWork,
 				ProjectID: nil,
 			},
-			verify: func(t *testing.T, got createTodoRequestDTO) {
+			verify: func(t *testing.T, got CreateTodoRequestDTO) {
 				t.Helper()
 				if got.GroupID != nil {
 					t.Errorf("GroupID = %d, want nil", *got.GroupID)
@@ -300,7 +300,7 @@ func TestToUpdateTodoRequest(t *testing.T) {
 	tests := []struct {
 		name   string
 		todo   *domain.Todo
-		verify func(t *testing.T, got updateTodoRequestDTO)
+		verify func(t *testing.T, got UpdateTodoRequestDTO)
 	}{
 		{
 			name: "sets all fields as pointers",
@@ -312,7 +312,7 @@ func TestToUpdateTodoRequest(t *testing.T) {
 				ProgressPercent: 75,
 				ProjectID:       &projectID,
 			},
-			verify: func(t *testing.T, got updateTodoRequestDTO) {
+			verify: func(t *testing.T, got UpdateTodoRequestDTO) {
 				t.Helper()
 				requirePtrEqual(t, "Title", got.Title, "Updated title")
 				requirePtrEqual(t, "Description", got.Description, "Updated desc")
@@ -329,7 +329,7 @@ func TestToUpdateTodoRequest(t *testing.T) {
 				Category:  domain.CategoryOther,
 				ProjectID: nil,
 			},
-			verify: func(t *testing.T, got updateTodoRequestDTO) {
+			verify: func(t *testing.T, got UpdateTodoRequestDTO) {
 				t.Helper()
 				if got.GroupID != nil {
 					t.Errorf("GroupID = %d, want nil", *got.GroupID)

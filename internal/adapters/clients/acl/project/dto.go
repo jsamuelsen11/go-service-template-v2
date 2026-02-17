@@ -2,8 +2,8 @@
 // downstream TODO API's group resources, which map to domain Projects.
 package project
 
-// groupDTO matches the downstream Group schema.
-type groupDTO struct {
+// GroupDTO matches the downstream Group schema.
+type GroupDTO struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -11,21 +11,21 @@ type groupDTO struct {
 	UpdatedAt   string `json:"updated_at"`
 }
 
-// createGroupRequestDTO matches the downstream CreateGroupRequest schema.
-type createGroupRequestDTO struct {
+// CreateGroupRequestDTO matches the downstream CreateGroupRequest schema.
+type CreateGroupRequestDTO struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
-// updateGroupRequestDTO matches the downstream UpdateGroupRequest schema.
+// UpdateGroupRequestDTO matches the downstream UpdateGroupRequest schema.
 // All fields are optional; nil means "do not change this field.".
-type updateGroupRequestDTO struct {
+type UpdateGroupRequestDTO struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 }
 
-// groupListResponseDTO matches the downstream GroupListResponse schema.
-type groupListResponseDTO struct {
-	Groups []groupDTO `json:"groups"`
+// GroupListResponseDTO matches the downstream GroupListResponse schema.
+type GroupListResponseDTO struct {
+	Groups []GroupDTO `json:"groups"`
 	Count  int64      `json:"count"`
 }
