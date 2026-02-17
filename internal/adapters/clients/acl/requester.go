@@ -27,20 +27,21 @@ func NewRequester(client *httpclient.Client, logger *slog.Logger) *Requester {
 
 // Do executes an HTTP request against the configured base URL.
 //
-// It marshals reqBody to JSON (if non-nil), sends the request, validates the
-// status code matches wantStatus, and decodes the response body into respBody
-// (if non-nil). For DELETE-style calls where no response body is expected,
-// pass nil for respBody.
+// It marshals reqBody to JSON (if non-nil), sends the request, checks for a
+// 2xx status code, and decodes the response body into respBody (if non-nil).
+// For DELETE-style calls where no response body is expected, pass nil for
+// respBody.
 //
-// On non-matching status codes, the response is passed to TranslateHTTPError.
-func (r *Requester) Do(ctx context.Context, method, path string, wantStatus int, reqBody, respBody any) error {
+// Any non-2xx status is passed to [TranslateHTTPError] and mapped to the
+// corresponding domain error.
+func (r *Requester) Do(ctx context.Context, method, path string, reqBody, respBody any) error {
 	switch method {
 	case http.MethodGet:
-		return r.get(ctx, path, wantStatus, respBody)
-	case http.MethodPost, http.MethodPut:
-		return r.withBody(ctx, method, path, wantStatus, reqBody, respBody)
+		return r.get(ctx, path, respBody)
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+		return r.withBody(ctx, method, path, reqBody, respBody)
 	case http.MethodDelete:
-		return r.delete(ctx, path, wantStatus)
+		return r.delete(ctx, path)
 	default:
 		return fmt.Errorf("unsupported HTTP method: %s", method)
 	}
@@ -51,7 +52,7 @@ func (r *Requester) BaseURL() string {
 	return r.client.BaseURL()
 }
 
-func (r *Requester) get(ctx context.Context, path string, wantStatus int, respBody any) error {
+func (r *Requester) get(ctx context.Context, path string, respBody any) error {
 	url := r.client.BaseURL() + path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
@@ -59,10 +60,10 @@ func (r *Requester) get(ctx context.Context, path string, wantStatus int, respBo
 		return fmt.Errorf("creating GET request for %s: %w", path, err)
 	}
 
-	return r.execute(req, wantStatus, respBody)
+	return r.execute(req, respBody)
 }
 
-func (r *Requester) withBody(ctx context.Context, method, path string, wantStatus int, reqBody, respBody any) error {
+func (r *Requester) withBody(ctx context.Context, method, path string, reqBody, respBody any) error {
 	url := r.client.BaseURL() + path
 
 	body, err := json.Marshal(reqBody)
@@ -76,10 +77,10 @@ func (r *Requester) withBody(ctx context.Context, method, path string, wantStatu
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	return r.execute(req, wantStatus, respBody)
+	return r.execute(req, respBody)
 }
 
-func (r *Requester) delete(ctx context.Context, path string, wantStatus int) error {
+func (r *Requester) delete(ctx context.Context, path string) error {
 	url := r.client.BaseURL() + path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, http.NoBody)
@@ -87,7 +88,7 @@ func (r *Requester) delete(ctx context.Context, path string, wantStatus int) err
 		return fmt.Errorf("creating DELETE request for %s: %w", path, err)
 	}
 
-	return r.execute(req, wantStatus, nil)
+	return r.execute(req, nil)
 }
 
 // closeBody is a helper that closes an HTTP response body and logs on failure.
@@ -99,9 +100,9 @@ func (r *Requester) closeBody(ctx context.Context, resp *http.Response) {
 	}
 }
 
-// execute sends the request, checks the status code, and optionally decodes
+// execute sends the request, checks for a 2xx status, and optionally decodes
 // the response body. It ensures resp.Body is always closed.
-func (r *Requester) execute(req *http.Request, wantStatus int, respBody any) error {
+func (r *Requester) execute(req *http.Request, respBody any) error {
 	resp, err := r.client.Do(req.Context(), req)
 	if err != nil {
 		// httpclient.Do can return both resp and err when retries are exhausted
@@ -109,7 +110,7 @@ func (r *Requester) execute(req *http.Request, wantStatus int, respBody any) err
 		// response into a domain error rather than returning the raw retry error.
 		if resp != nil {
 			defer r.closeBody(req.Context(), resp)
-			if resp.StatusCode != wantStatus {
+			if !isSuccess(resp.StatusCode) {
 				return TranslateHTTPError(resp)
 			}
 		}
@@ -122,13 +123,12 @@ func (r *Requester) execute(req *http.Request, wantStatus int, respBody any) err
 	}
 	defer r.closeBody(req.Context(), resp)
 
-	if resp.StatusCode != wantStatus {
+	if !isSuccess(resp.StatusCode) {
 		translateErr := TranslateHTTPError(resp)
 		r.logger.ErrorContext(req.Context(), "unexpected status",
 			slog.String("method", req.Method),
 			slog.String("url", req.URL.String()),
 			slog.Int("status", resp.StatusCode),
-			slog.Int("want_status", wantStatus),
 		)
 		return translateErr
 	}
@@ -140,4 +140,9 @@ func (r *Requester) execute(req *http.Request, wantStatus int, respBody any) err
 	}
 
 	return nil
+}
+
+// isSuccess returns true for HTTP 2xx status codes.
+func isSuccess(statusCode int) bool {
+	return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
 }

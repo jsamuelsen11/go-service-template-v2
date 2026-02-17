@@ -54,7 +54,7 @@ func (c *TodoClient) ListTodos(ctx context.Context, filter domain.TodoFilter) ([
 	path := "/api/v1/todos" + filterQuery(filter)
 
 	var dto todo.TodoListResponseDTO
-	if err := c.req.Do(ctx, http.MethodGet, path, http.StatusOK, nil, &dto); err != nil {
+	if err := c.req.Do(ctx, http.MethodGet, path, nil, &dto); err != nil {
 		return nil, err
 	}
 	return todo.ToDomainTodoList(dto), nil
@@ -66,7 +66,7 @@ func (c *TodoClient) GetTodo(ctx context.Context, id int64) (*domain.Todo, error
 	path := fmt.Sprintf("/api/v1/todos/%d", id)
 
 	var dto todo.TodoDTO
-	if err := c.req.Do(ctx, http.MethodGet, path, http.StatusOK, nil, &dto); err != nil {
+	if err := c.req.Do(ctx, http.MethodGet, path, nil, &dto); err != nil {
 		return nil, err
 	}
 	result := todo.ToDomainTodo(&dto)
@@ -74,13 +74,13 @@ func (c *TodoClient) GetTodo(ctx context.Context, id int64) (*domain.Todo, error
 }
 
 // CreateTodo sends a POST /api/v1/todos with the translated request body
-// and returns the created todo as a domain entity. Expects 201 Created.
-// Returns [domain.ErrValidation] if the downstream rejects the payload.
+// and returns the created todo as a domain entity. Returns
+// [domain.ErrValidation] if the downstream rejects the payload.
 func (c *TodoClient) CreateTodo(ctx context.Context, t *domain.Todo) (*domain.Todo, error) {
 	reqDTO := todo.ToCreateTodoRequest(t)
 
 	var respDTO todo.TodoDTO
-	if err := c.req.Do(ctx, http.MethodPost, "/api/v1/todos", http.StatusCreated, reqDTO, &respDTO); err != nil {
+	if err := c.req.Do(ctx, http.MethodPost, "/api/v1/todos", reqDTO, &respDTO); err != nil {
 		return nil, err
 	}
 	result := todo.ToDomainTodo(&respDTO)
@@ -88,26 +88,25 @@ func (c *TodoClient) CreateTodo(ctx context.Context, t *domain.Todo) (*domain.To
 }
 
 // UpdateTodo sends a PUT /api/v1/todos/{id} with the translated request
-// body and returns the updated todo. Expects 200 OK. Returns
-// [domain.ErrNotFound] if the todo does not exist or [domain.ErrValidation]
-// if the payload is rejected.
+// body and returns the updated todo. Returns [domain.ErrNotFound] if the
+// todo does not exist or [domain.ErrValidation] if the payload is rejected.
 func (c *TodoClient) UpdateTodo(ctx context.Context, id int64, t *domain.Todo) (*domain.Todo, error) {
 	path := fmt.Sprintf("/api/v1/todos/%d", id)
 	reqDTO := todo.ToUpdateTodoRequest(t)
 
 	var respDTO todo.TodoDTO
-	if err := c.req.Do(ctx, http.MethodPut, path, http.StatusOK, reqDTO, &respDTO); err != nil {
+	if err := c.req.Do(ctx, http.MethodPut, path, reqDTO, &respDTO); err != nil {
 		return nil, err
 	}
 	result := todo.ToDomainTodo(&respDTO)
 	return &result, nil
 }
 
-// DeleteTodo sends a DELETE /api/v1/todos/{id}. Expects 204 No Content.
-// Returns [domain.ErrNotFound] if the todo does not exist.
+// DeleteTodo sends a DELETE /api/v1/todos/{id}. Returns
+// [domain.ErrNotFound] if the todo does not exist.
 func (c *TodoClient) DeleteTodo(ctx context.Context, id int64) error {
 	path := fmt.Sprintf("/api/v1/todos/%d", id)
-	return c.req.Do(ctx, http.MethodDelete, path, http.StatusNoContent, nil, nil)
+	return c.req.Do(ctx, http.MethodDelete, path, nil, nil)
 }
 
 // --- Project operations (downstream "groups") ---
@@ -117,7 +116,7 @@ func (c *TodoClient) DeleteTodo(ctx context.Context, id int64) error {
 // is translated to our domain "project" concept.
 func (c *TodoClient) ListProjects(ctx context.Context) ([]domain.Project, error) {
 	var dto project.GroupListResponseDTO
-	if err := c.req.Do(ctx, http.MethodGet, "/api/v1/groups", http.StatusOK, nil, &dto); err != nil {
+	if err := c.req.Do(ctx, http.MethodGet, "/api/v1/groups", nil, &dto); err != nil {
 		return nil, err
 	}
 	return project.ToDomainProjectList(dto), nil
@@ -129,7 +128,7 @@ func (c *TodoClient) GetProject(ctx context.Context, id int64) (*domain.Project,
 	path := fmt.Sprintf("/api/v1/groups/%d", id)
 
 	var dto project.GroupDTO
-	if err := c.req.Do(ctx, http.MethodGet, path, http.StatusOK, nil, &dto); err != nil {
+	if err := c.req.Do(ctx, http.MethodGet, path, nil, &dto); err != nil {
 		return nil, err
 	}
 	result := project.ToDomainProject(dto)
@@ -137,13 +136,13 @@ func (c *TodoClient) GetProject(ctx context.Context, id int64) (*domain.Project,
 }
 
 // CreateProject sends a POST /api/v1/groups with the translated request
-// body and returns the created project. Expects 201 Created. Returns
-// [domain.ErrValidation] if the downstream rejects the payload.
+// body and returns the created project. Returns [domain.ErrValidation]
+// if the downstream rejects the payload.
 func (c *TodoClient) CreateProject(ctx context.Context, p *domain.Project) (*domain.Project, error) {
 	reqDTO := project.ToCreateGroupRequest(p)
 
 	var respDTO project.GroupDTO
-	if err := c.req.Do(ctx, http.MethodPost, "/api/v1/groups", http.StatusCreated, reqDTO, &respDTO); err != nil {
+	if err := c.req.Do(ctx, http.MethodPost, "/api/v1/groups", reqDTO, &respDTO); err != nil {
 		return nil, err
 	}
 	result := project.ToDomainProject(respDTO)
@@ -151,26 +150,26 @@ func (c *TodoClient) CreateProject(ctx context.Context, p *domain.Project) (*dom
 }
 
 // UpdateProject sends a PUT /api/v1/groups/{id} with the translated request
-// body and returns the updated project. Expects 200 OK. Returns
-// [domain.ErrNotFound] if the project does not exist.
+// body and returns the updated project. Returns [domain.ErrNotFound] if the
+// project does not exist.
 func (c *TodoClient) UpdateProject(ctx context.Context, id int64, p *domain.Project) (*domain.Project, error) {
 	path := fmt.Sprintf("/api/v1/groups/%d", id)
 	reqDTO := project.ToUpdateGroupRequest(p)
 
 	var respDTO project.GroupDTO
-	if err := c.req.Do(ctx, http.MethodPut, path, http.StatusOK, reqDTO, &respDTO); err != nil {
+	if err := c.req.Do(ctx, http.MethodPut, path, reqDTO, &respDTO); err != nil {
 		return nil, err
 	}
 	result := project.ToDomainProject(respDTO)
 	return &result, nil
 }
 
-// DeleteProject sends a DELETE /api/v1/groups/{id}. Expects 204 No Content.
-// Todos belonging to the project become ungrouped. Returns
-// [domain.ErrNotFound] if the project does not exist.
+// DeleteProject sends a DELETE /api/v1/groups/{id}. Todos belonging to the
+// project become ungrouped. Returns [domain.ErrNotFound] if the project
+// does not exist.
 func (c *TodoClient) DeleteProject(ctx context.Context, id int64) error {
 	path := fmt.Sprintf("/api/v1/groups/%d", id)
-	return c.req.Do(ctx, http.MethodDelete, path, http.StatusNoContent, nil, nil)
+	return c.req.Do(ctx, http.MethodDelete, path, nil, nil)
 }
 
 // GetProjectTodos fetches todos belonging to a specific project from
@@ -184,7 +183,7 @@ func (c *TodoClient) GetProjectTodos(ctx context.Context, projectID int64, filte
 	path := fmt.Sprintf("/api/v1/groups/%d/todos", projectID) + filterQuery(filter)
 
 	var dto todo.TodoListResponseDTO
-	if err := c.req.Do(ctx, http.MethodGet, path, http.StatusOK, nil, &dto); err != nil {
+	if err := c.req.Do(ctx, http.MethodGet, path, nil, &dto); err != nil {
 		return nil, err
 	}
 	return todo.ToDomainTodoList(dto), nil
