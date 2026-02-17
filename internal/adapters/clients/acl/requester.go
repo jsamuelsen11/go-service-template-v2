@@ -51,12 +51,6 @@ func (r *Requester) BaseURL() string {
 	return r.client.BaseURL()
 }
 
-// CircuitBreakerState returns the circuit breaker state from the underlying
-// HTTP client.
-func (r *Requester) CircuitBreakerState() string {
-	return r.client.CircuitBreakerState()
-}
-
 func (r *Requester) get(ctx context.Context, path string, wantStatus int, respBody any) error {
 	url := r.client.BaseURL() + path
 

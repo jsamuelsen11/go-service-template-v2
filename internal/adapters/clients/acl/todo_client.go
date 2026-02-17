@@ -14,15 +14,11 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 )
 
-// Compile-time interface checks.
-var (
-	_ ports.TodoClient    = (*TodoClient)(nil)
-	_ ports.HealthChecker = (*TodoClient)(nil)
-)
+// Compile-time interface check.
+var _ ports.TodoClient = (*TodoClient)(nil)
 
 // TodoClient is the outbound adapter for the downstream TODO API. It
-// implements [ports.TodoClient] (11 CRUD methods for todos and projects) and
-// [ports.HealthChecker] (circuit-breaker-based health reporting).
+// implements [ports.TodoClient] (11 CRUD methods for todos and projects).
 //
 // All methods translate between our domain types and the downstream API's
 // representations via the ACL translators in sub-packages [todo] and
@@ -30,7 +26,8 @@ var (
 // ErrValidation, etc.) by [TranslateHTTPError].
 //
 // The underlying [httpclient.Client] provides circuit breaking, retry with
-// exponential backoff, and OpenTelemetry tracing for every outbound call.
+// exponential backoff, OpenTelemetry tracing, and health checking
+// ([ports.HealthChecker]) for every outbound call.
 type TodoClient struct {
 	req    *Requester
 	logger *slog.Logger

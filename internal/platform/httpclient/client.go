@@ -162,11 +162,37 @@ func (c *Client) BaseURL() string {
 	return c.baseURL
 }
 
-// CircuitBreakerState returns the current circuit breaker state as a string
-// ("closed", "half-open", or "open"). Used by health checkers to report
-// downstream status without making a network call.
-func (c *Client) CircuitBreakerState() string {
-	return c.breaker.State().String()
+// Name returns the downstream service identifier (e.g., "todo-api").
+// Together with HealthCheck, this method lets Client satisfy the
+// ports.HealthChecker interface via structural typing — no import needed.
+func (c *Client) Name() string {
+	return c.serviceName
+}
+
+// HealthCheck reports the downstream service's availability based on the
+// circuit breaker state — no network call is made.
+//
+// State mapping:
+//   - "closed"    — downstream is operating normally; returns nil.
+//   - "half-open" — circuit breaker is probing recovery; returns a
+//     descriptive error indicating degraded state.
+//   - "open"      — downstream is unavailable and the breaker is rejecting
+//     requests; returns a descriptive error indicating failure.
+//
+// This reports downstream status, not service readiness. The service itself
+// is always ready to handle requests even when a downstream is failing.
+func (c *Client) HealthCheck(_ context.Context) error {
+	state := c.breaker.State().String()
+	switch state {
+	case "closed":
+		return nil
+	case "half-open":
+		return fmt.Errorf("%s: degraded (circuit breaker half-open)", c.serviceName)
+	case "open":
+		return fmt.Errorf("%s: failing (circuit breaker open)", c.serviceName)
+	default:
+		return fmt.Errorf("%s: unknown circuit breaker state %q", c.serviceName, state)
+	}
 }
 
 // injectHeaders adds Request-ID and Correlation-ID headers to the outbound

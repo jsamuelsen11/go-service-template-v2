@@ -443,6 +443,91 @@ func TestDo_ContextCancellation(t *testing.T) {
 	}
 }
 
+func TestClient_Name(t *testing.T) {
+	t.Parallel()
+
+	client := httpclient.New(testConfig("http://localhost"), "todo-api", nil, testLogger())
+
+	if got := client.Name(); got != "todo-api" {
+		t.Errorf("Name() = %q, want %q", got, "todo-api")
+	}
+}
+
+func TestClient_HealthCheck_Closed(t *testing.T) {
+	t.Parallel()
+
+	// A fresh client has a closed circuit breaker — healthy.
+	client := httpclient.New(testConfig("http://localhost"), "todo-api", nil, testLogger())
+
+	if err := client.HealthCheck(context.Background()); err != nil {
+		t.Errorf("HealthCheck() = %v, want nil (closed breaker)", err)
+	}
+}
+
+func TestClient_HealthCheck_Open(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := testConfig(srv.URL)
+	cfg.CircuitBreaker.MaxFailures = 1
+	cfg.Retry.MaxAttempts = 1
+
+	client := httpclient.New(cfg, "todo-api", nil, testLogger())
+
+	// Trip the circuit breaker with a failing request.
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/health", http.NoBody)
+	resp, _ := client.Do(context.Background(), req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+
+	err := client.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatal("HealthCheck() = nil, want error (open breaker)")
+	}
+	if !strings.Contains(err.Error(), "failing") {
+		t.Errorf("HealthCheck() = %q, want error containing %q", err, "failing")
+	}
+}
+
+func TestClient_HealthCheck_HalfOpen(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := testConfig(srv.URL)
+	cfg.CircuitBreaker.MaxFailures = 1
+	cfg.CircuitBreaker.Timeout = 100 * time.Millisecond
+	cfg.Retry.MaxAttempts = 1
+
+	client := httpclient.New(cfg, "todo-api", nil, testLogger())
+
+	// Trip the circuit breaker.
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/health", http.NoBody)
+	resp, _ := client.Do(context.Background(), req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+
+	// Wait for the CB timeout so it transitions to half-open.
+	time.Sleep(150 * time.Millisecond)
+
+	err := client.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatal("HealthCheck() = nil, want error (half-open breaker)")
+	}
+	if !strings.Contains(err.Error(), "degraded") {
+		t.Errorf("HealthCheck() = %q, want error containing %q", err, "degraded")
+	}
+}
+
 func TestDo_NilMetrics(t *testing.T) {
 	t.Parallel()
 

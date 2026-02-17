@@ -435,33 +435,6 @@ func TestTodoClient_GetProjectTodos(t *testing.T) {
 	}
 }
 
-// --- Health check tests ---
-
-func TestTodoClient_HealthCheck_Name(t *testing.T) {
-	t.Parallel()
-
-	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-	defer ts.Close()
-
-	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	if name := client.Name(); name != "todo-api" {
-		t.Errorf("Name() = %q, want %q", name, "todo-api")
-	}
-}
-
-func TestTodoClient_HealthCheck_ClosedIsHealthy(t *testing.T) {
-	t.Parallel()
-
-	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-	defer ts.Close()
-
-	// Fresh client has a closed circuit breaker.
-	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	if err := client.HealthCheck(context.Background()); err != nil {
-		t.Errorf("HealthCheck() = %v, want nil (closed circuit = healthy)", err)
-	}
-}
-
 // --- Validation error test ---
 
 func TestTodoClient_CreateTodo_ValidationError(t *testing.T) {
