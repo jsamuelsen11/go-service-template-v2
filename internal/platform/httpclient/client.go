@@ -157,6 +157,44 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	return resp, err
 }
 
+// BaseURL returns the base URL configured for this client.
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
+// Name returns the downstream service identifier (e.g., "todo-api").
+// Together with HealthCheck, this method lets Client satisfy the
+// ports.HealthChecker interface via structural typing — no import needed.
+func (c *Client) Name() string {
+	return c.serviceName
+}
+
+// HealthCheck reports the downstream service's availability based on the
+// circuit breaker state — no network call is made.
+//
+// State mapping:
+//   - "closed"    — downstream is operating normally; returns nil.
+//   - "half-open" — circuit breaker is probing recovery; returns a
+//     descriptive error indicating degraded state.
+//   - "open"      — downstream is unavailable and the breaker is rejecting
+//     requests; returns a descriptive error indicating failure.
+//
+// This reports downstream status, not service readiness. The service itself
+// is always ready to handle requests even when a downstream is failing.
+func (c *Client) HealthCheck(_ context.Context) error {
+	state := c.breaker.State().String()
+	switch state {
+	case "closed":
+		return nil
+	case "half-open":
+		return fmt.Errorf("%s: degraded (circuit breaker half-open)", c.serviceName)
+	case "open":
+		return fmt.Errorf("%s: failing (circuit breaker open)", c.serviceName)
+	default:
+		return fmt.Errorf("%s: unknown circuit breaker state %q", c.serviceName, state)
+	}
+}
+
 // injectHeaders adds Request-ID and Correlation-ID headers to the outbound
 // request if present in the context.
 func (c *Client) injectHeaders(ctx context.Context, req *http.Request) {

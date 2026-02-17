@@ -2,9 +2,9 @@
 // downstream TODO API's todo resources.
 package todo
 
-// todoDTO matches the downstream Todo schema.
+// TodoDTO matches the downstream Todo schema.
 // Fields use int64 to match the OpenAPI spec's format: int64 annotation.
-type todoDTO struct {
+type TodoDTO struct {
 	ID              int64  `json:"id"`
 	Title           string `json:"title"`
 	Description     string `json:"description"`
@@ -16,8 +16,8 @@ type todoDTO struct {
 	UpdatedAt       string `json:"updated_at"`
 }
 
-// createTodoRequestDTO matches the downstream CreateTodoRequest schema.
-type createTodoRequestDTO struct {
+// CreateTodoRequestDTO matches the downstream CreateTodoRequest schema.
+type CreateTodoRequestDTO struct {
 	Title           string `json:"title"`
 	Description     string `json:"description"`
 	Status          string `json:"status,omitempty"`
@@ -26,9 +26,9 @@ type createTodoRequestDTO struct {
 	GroupID         *int64 `json:"group_id,omitempty"`
 }
 
-// updateTodoRequestDTO matches the downstream UpdateTodoRequest schema.
+// UpdateTodoRequestDTO matches the downstream UpdateTodoRequest schema.
 // All fields are optional; nil means "do not change this field.".
-type updateTodoRequestDTO struct {
+type UpdateTodoRequestDTO struct {
 	Title           *string `json:"title,omitempty"`
 	Description     *string `json:"description,omitempty"`
 	Status          *string `json:"status,omitempty"`
@@ -37,8 +37,8 @@ type updateTodoRequestDTO struct {
 	GroupID         *int64  `json:"group_id,omitempty"`
 }
 
-// todoListResponseDTO matches the downstream TodoListResponse schema.
-type todoListResponseDTO struct {
-	Todos []todoDTO `json:"todos"`
+// TodoListResponseDTO matches the downstream TodoListResponse schema.
+type TodoListResponseDTO struct {
+	Todos []TodoDTO `json:"todos"`
 	Count int64     `json:"count"`
 }
