@@ -3,16 +3,16 @@ package project
 import (
 	"time"
 
-	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	domproject "github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 )
 
 // ToDomainProject converts a downstream GroupDTO to a domain Project entity.
 // The downstream "Group" concept maps to our domain "Project" concept.
-func ToDomainProject(dto GroupDTO) domain.Project {
+func ToDomainProject(dto GroupDTO) domproject.Project {
 	createdAt, _ := time.Parse(time.RFC3339, dto.CreatedAt)
 	updatedAt, _ := time.Parse(time.RFC3339, dto.UpdatedAt)
 
-	return domain.Project{
+	return domproject.Project{
 		ID:          dto.ID,
 		Name:        dto.Name,
 		Description: dto.Description,
@@ -23,8 +23,8 @@ func ToDomainProject(dto GroupDTO) domain.Project {
 
 // ToDomainProjectList converts a downstream GroupListResponseDTO to a slice of
 // domain Project entities.
-func ToDomainProjectList(dto GroupListResponseDTO) []domain.Project {
-	projects := make([]domain.Project, len(dto.Groups))
+func ToDomainProjectList(dto GroupListResponseDTO) []domproject.Project {
+	projects := make([]domproject.Project, len(dto.Groups))
 	for i := range dto.Groups {
 		projects[i] = ToDomainProject(dto.Groups[i])
 	}
@@ -33,7 +33,7 @@ func ToDomainProjectList(dto GroupListResponseDTO) []domain.Project {
 
 // ToCreateGroupRequest converts a domain Project entity to a downstream
 // CreateGroupRequestDTO.
-func ToCreateGroupRequest(project *domain.Project) CreateGroupRequestDTO {
+func ToCreateGroupRequest(project *domproject.Project) CreateGroupRequestDTO {
 	return CreateGroupRequestDTO{
 		Name:        project.Name,
 		Description: project.Description,
@@ -42,7 +42,7 @@ func ToCreateGroupRequest(project *domain.Project) CreateGroupRequestDTO {
 
 // ToUpdateGroupRequest converts a domain Project entity to a downstream
 // UpdateGroupRequestDTO. All fields are set (full replacement semantics).
-func ToUpdateGroupRequest(project *domain.Project) UpdateGroupRequestDTO {
+func ToUpdateGroupRequest(project *domproject.Project) UpdateGroupRequestDTO {
 	return UpdateGroupRequestDTO{
 		Name:        &project.Name,
 		Description: &project.Description,

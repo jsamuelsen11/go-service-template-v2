@@ -1,10 +1,34 @@
-package domain
+package project
 
 import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
+
+// requireValidationField is a test helper that asserts err wraps domain.ErrValidation
+// and the resulting ValidationError contains the expected field key.
+func requireValidationField(t *testing.T, err error, field string) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("Validate() = nil, want error")
+	}
+	if !errors.Is(err, domain.ErrValidation) {
+		t.Errorf("errors.Is(err, ErrValidation) = false, got %v", err)
+	}
+
+	var verr *domain.ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("errors.As(err, *ValidationError) = false, got %T", err)
+	}
+	if _, ok := verr.Fields[field]; !ok {
+		t.Errorf("ValidationError.Fields missing key %q, got %v", field, verr.Fields)
+	}
+}
 
 func validProject() Project {
 	return Project{
@@ -61,7 +85,7 @@ func TestProject_Validate(t *testing.T) {
 		},
 		{
 			name:    "empty todos passes",
-			modify:  func(p *Project) { p.Todos = []Todo{} },
+			modify:  func(p *Project) { p.Todos = []todo.Todo{} },
 			wantErr: false,
 		},
 	}
@@ -96,7 +120,7 @@ func TestProject_Validate_MultipleErrors(t *testing.T) {
 		t.Fatal("Validate() = nil, want error with multiple failures")
 	}
 
-	var verr *ValidationError
+	var verr *domain.ValidationError
 	if !errors.As(err, &verr) {
 		t.Fatalf("errors.As(err, *ValidationError) = false, got %T", err)
 	}

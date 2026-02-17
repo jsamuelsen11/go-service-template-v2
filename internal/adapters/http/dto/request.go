@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
 
 // CreateTodoRequest represents the JSON body for creating a new TODO item.
@@ -27,10 +28,10 @@ func (r *CreateTodoRequest) Validate() error {
 	if strings.TrimSpace(r.Description) == "" {
 		fields["description"] = "is required"
 	}
-	if r.Status != "" && !domain.TodoStatus(r.Status).IsValid() {
+	if r.Status != "" && !todo.Status(r.Status).IsValid() {
 		fields["status"] = fmt.Sprintf("invalid: %q", r.Status)
 	}
-	if r.Category != "" && !domain.TodoCategory(r.Category).IsValid() {
+	if r.Category != "" && !todo.Category(r.Category).IsValid() {
 		fields["category"] = fmt.Sprintf("invalid: %q", r.Category)
 	}
 	if r.ProgressPercent < 0 || r.ProgressPercent > 100 {
@@ -64,10 +65,10 @@ func (r *UpdateTodoRequest) Validate() error {
 	if r.Description != nil && strings.TrimSpace(*r.Description) == "" {
 		fields["description"] = "must not be empty"
 	}
-	if r.Status != nil && !domain.TodoStatus(*r.Status).IsValid() {
+	if r.Status != nil && !todo.Status(*r.Status).IsValid() {
 		fields["status"] = fmt.Sprintf("invalid: %q", *r.Status)
 	}
-	if r.Category != nil && !domain.TodoCategory(*r.Category).IsValid() {
+	if r.Category != nil && !todo.Category(*r.Category).IsValid() {
 		fields["category"] = fmt.Sprintf("invalid: %q", *r.Category)
 	}
 	if r.ProgressPercent != nil && (*r.ProgressPercent < 0 || *r.ProgressPercent > 100) {

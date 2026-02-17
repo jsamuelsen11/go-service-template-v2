@@ -1,3 +1,5 @@
-// Package domain contains pure business logic for all services.
-// This layer has zero external dependencies and can be tested without mocks.
+// Package domain contains shared domain types used across entity sub-packages.
+// Entity-specific types live in sub-packages (domain/todo, domain/project).
+// This root package holds sentinel errors, validation types, and domain-level
+// interfaces (Action, WriteStager) that are shared across all entities.
 package domain

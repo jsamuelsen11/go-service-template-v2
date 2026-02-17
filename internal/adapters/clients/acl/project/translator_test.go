@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	domproject "github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 )
 
 func TestToDomainProject(t *testing.T) {
@@ -13,7 +13,7 @@ func TestToDomainProject(t *testing.T) {
 	tests := []struct {
 		name   string
 		dto    GroupDTO
-		verify func(t *testing.T, got domain.Project)
+		verify func(t *testing.T, got domproject.Project)
 	}{
 		{
 			name: "maps all fields",
@@ -24,7 +24,7 @@ func TestToDomainProject(t *testing.T) {
 				CreatedAt:   "2026-02-12T15:04:05Z",
 				UpdatedAt:   "2026-02-12T16:04:05Z",
 			},
-			verify: func(t *testing.T, got domain.Project) {
+			verify: func(t *testing.T, got domproject.Project) {
 				t.Helper()
 				if got.ID != 10 {
 					t.Errorf("ID = %d, want 10", got.ID)
@@ -43,7 +43,7 @@ func TestToDomainProject(t *testing.T) {
 				CreatedAt: "2026-02-12T15:04:05Z",
 				UpdatedAt: "2026-02-12T16:04:05Z",
 			},
-			verify: func(t *testing.T, got domain.Project) {
+			verify: func(t *testing.T, got domproject.Project) {
 				t.Helper()
 				wantCreated := time.Date(2026, 2, 12, 15, 4, 5, 0, time.UTC)
 				wantUpdated := time.Date(2026, 2, 12, 16, 4, 5, 0, time.UTC)
@@ -61,7 +61,7 @@ func TestToDomainProject(t *testing.T) {
 				CreatedAt: "bad",
 				UpdatedAt: "",
 			},
-			verify: func(t *testing.T, got domain.Project) {
+			verify: func(t *testing.T, got domproject.Project) {
 				t.Helper()
 				if !got.CreatedAt.IsZero() {
 					t.Errorf("CreatedAt = %v, want zero time", got.CreatedAt)
@@ -77,7 +77,7 @@ func TestToDomainProject(t *testing.T) {
 				CreatedAt: "2026-02-12T15:04:05Z",
 				UpdatedAt: "2026-02-12T15:04:05Z",
 			},
-			verify: func(t *testing.T, got domain.Project) {
+			verify: func(t *testing.T, got domproject.Project) {
 				t.Helper()
 				if got.Todos != nil {
 					t.Errorf("Todos = %v, want nil", got.Todos)
@@ -153,12 +153,12 @@ func TestToCreateGroupRequest(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		project *domain.Project
+		project *domproject.Project
 		verify  func(t *testing.T, got CreateGroupRequestDTO)
 	}{
 		{
 			name: "maps name and description",
-			project: &domain.Project{
+			project: &domproject.Project{
 				Name:        "Sprint 1",
 				Description: "First sprint tasks",
 			},
@@ -188,12 +188,12 @@ func TestToUpdateGroupRequest(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		project *domain.Project
+		project *domproject.Project
 		verify  func(t *testing.T, got UpdateGroupRequestDTO)
 	}{
 		{
 			name: "sets all fields as pointers",
-			project: &domain.Project{
+			project: &domproject.Project{
 				Name:        "Updated Sprint",
 				Description: "Updated description",
 			},
