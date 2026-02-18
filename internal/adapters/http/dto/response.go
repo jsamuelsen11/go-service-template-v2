@@ -5,7 +5,7 @@ package dto
 import (
 	"time"
 
-	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
 
 // TodoResponse represents a single TODO item in HTTP responses.
@@ -27,7 +27,7 @@ type TodoListResponse struct {
 }
 
 // ToTodoResponse converts a domain Todo entity to an HTTP response DTO.
-func ToTodoResponse(t *domain.Todo) TodoResponse {
+func ToTodoResponse(t *todo.Todo) TodoResponse {
 	return TodoResponse{
 		ID:              t.ID,
 		Title:           t.Title,
@@ -42,7 +42,7 @@ func ToTodoResponse(t *domain.Todo) TodoResponse {
 
 // ToTodoListResponse converts a slice of domain Todo entities to an HTTP
 // list response DTO.
-func ToTodoListResponse(todos []domain.Todo) TodoListResponse {
+func ToTodoListResponse(todos []todo.Todo) TodoListResponse {
 	items := make([]TodoResponse, len(todos))
 	for i := range todos {
 		items[i] = ToTodoResponse(&todos[i])

@@ -1,18 +1,43 @@
-package domain
+package todo
 
 import (
 	"errors"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
 
-func TestTodoStatus_IsValid(t *testing.T) {
+func int64Ptr(v int64) *int64 { return &v }
+
+// requireValidationField is a test helper that asserts err wraps domain.ErrValidation
+// and the resulting ValidationError contains the expected field key.
+func requireValidationField(t *testing.T, err error, field string) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("Validate() = nil, want error")
+	}
+	if !errors.Is(err, domain.ErrValidation) {
+		t.Errorf("errors.Is(err, ErrValidation) = false, got %v", err)
+	}
+
+	var verr *domain.ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("errors.As(err, *ValidationError) = false, got %T", err)
+	}
+	if _, ok := verr.Fields[field]; !ok {
+		t.Errorf("ValidationError.Fields missing key %q, got %v", field, verr.Fields)
+	}
+}
+
+func TestStatus_IsValid(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
-		status TodoStatus
+		status Status
 		want   bool
 	}{
 		{
@@ -51,17 +76,17 @@ func TestTodoStatus_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := tt.status.IsValid(); got != tt.want {
-				t.Errorf("TodoStatus(%q).IsValid() = %v, want %v", tt.status, got, tt.want)
+				t.Errorf("Status(%q).IsValid() = %v, want %v", tt.status, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestTodoStatus_String(t *testing.T) {
+func TestStatus_String(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		status TodoStatus
+		status Status
 		want   string
 	}{
 		{StatusPending, "pending"},
@@ -73,18 +98,18 @@ func TestTodoStatus_String(t *testing.T) {
 		t.Run(tt.want, func(t *testing.T) {
 			t.Parallel()
 			if got := tt.status.String(); got != tt.want {
-				t.Errorf("TodoStatus.String() = %q, want %q", got, tt.want)
+				t.Errorf("Status.String() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestTodoCategory_IsValid(t *testing.T) {
+func TestCategory_IsValid(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name     string
-		category TodoCategory
+		category Category
 		want     bool
 	}{
 		{
@@ -123,17 +148,17 @@ func TestTodoCategory_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := tt.category.IsValid(); got != tt.want {
-				t.Errorf("TodoCategory(%q).IsValid() = %v, want %v", tt.category, got, tt.want)
+				t.Errorf("Category(%q).IsValid() = %v, want %v", tt.category, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestTodoCategory_String(t *testing.T) {
+func TestCategory_String(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		category TodoCategory
+		category Category
 		want     string
 	}{
 		{CategoryPersonal, "personal"},
@@ -145,13 +170,11 @@ func TestTodoCategory_String(t *testing.T) {
 		t.Run(tt.want, func(t *testing.T) {
 			t.Parallel()
 			if got := tt.category.String(); got != tt.want {
-				t.Errorf("TodoCategory.String() = %q, want %q", got, tt.want)
+				t.Errorf("Category.String() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
-
-func int64Ptr(v int64) *int64 { return &v }
 
 func validTodo() Todo {
 	return Todo{
@@ -163,27 +186,6 @@ func validTodo() Todo {
 		ProgressPercent: 0,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
-	}
-}
-
-// requireValidationField is a test helper that asserts err wraps ErrValidation
-// and the resulting ValidationError contains the expected field key.
-func requireValidationField(t *testing.T, err error, field string) {
-	t.Helper()
-
-	if err == nil {
-		t.Fatal("Validate() = nil, want error")
-	}
-	if !errors.Is(err, ErrValidation) {
-		t.Errorf("errors.Is(err, ErrValidation) = false, got %v", err)
-	}
-
-	var verr *ValidationError
-	if !errors.As(err, &verr) {
-		t.Fatalf("errors.As(err, *ValidationError) = false, got %T", err)
-	}
-	if _, ok := verr.Fields[field]; !ok {
-		t.Errorf("ValidationError.Fields missing key %q, got %v", field, verr.Fields)
 	}
 }
 
@@ -336,7 +338,7 @@ func TestTodo_Validate_MultipleErrors(t *testing.T) {
 		t.Fatal("Validate() = nil, want error with multiple failures")
 	}
 
-	var verr *ValidationError
+	var verr *domain.ValidationError
 	if !errors.As(err, &verr) {
 		t.Fatalf("errors.As(err, *ValidationError) = false, got %T", err)
 	}
@@ -356,15 +358,15 @@ func TestTodo_Validate_MultipleErrors(t *testing.T) {
 func TestValidationError_ErrorsIs(t *testing.T) {
 	t.Parallel()
 
-	verr := &ValidationError{Fields: map[string]string{"title": msgRequired}}
+	verr := &domain.ValidationError{Fields: map[string]string{"title": msgRequired}}
 
-	if !errors.Is(verr, ErrValidation) {
+	if !errors.Is(verr, domain.ErrValidation) {
 		t.Error("errors.Is(ValidationError, ErrValidation) = false, want true")
 	}
 
 	// Wrapped further
 	wrapped := fmt.Errorf("operation failed: %w", verr)
-	if !errors.Is(wrapped, ErrValidation) {
+	if !errors.Is(wrapped, domain.ErrValidation) {
 		t.Error("errors.Is(wrapped ValidationError, ErrValidation) = false, want true")
 	}
 }
@@ -372,14 +374,14 @@ func TestValidationError_ErrorsIs(t *testing.T) {
 func TestValidationError_ErrorsAs(t *testing.T) {
 	t.Parallel()
 
-	original := &ValidationError{Fields: map[string]string{
+	original := &domain.ValidationError{Fields: map[string]string{
 		"title":       msgRequired,
 		"description": msgRequired,
 	}}
 
 	wrapped := fmt.Errorf("operation failed: %w", original)
 
-	var verr *ValidationError
+	var verr *domain.ValidationError
 	if !errors.As(wrapped, &verr) {
 		t.Fatal("errors.As(wrapped, *ValidationError) = false, want true")
 	}
@@ -395,14 +397,14 @@ func TestValidationError_ErrorsAs(t *testing.T) {
 func TestValidationError_Error(t *testing.T) {
 	t.Parallel()
 
-	verr := &ValidationError{Fields: map[string]string{"title": msgRequired}}
+	verr := &domain.ValidationError{Fields: map[string]string{"title": msgRequired}}
 	got := verr.Error()
 
 	if got == "" {
 		t.Fatal("ValidationError.Error() returned empty string")
 	}
 	// Should contain the sentinel message prefix
-	if !errors.Is(verr, ErrValidation) {
+	if !errors.Is(verr, domain.ErrValidation) {
 		t.Error("should wrap ErrValidation")
 	}
 }
@@ -414,11 +416,11 @@ func TestSentinelErrors(t *testing.T) {
 		name string
 		err  error
 	}{
-		{"ErrNotFound", ErrNotFound},
-		{"ErrValidation", ErrValidation},
-		{"ErrConflict", ErrConflict},
-		{"ErrForbidden", ErrForbidden},
-		{"ErrUnavailable", ErrUnavailable},
+		{"ErrNotFound", domain.ErrNotFound},
+		{"ErrValidation", domain.ErrValidation},
+		{"ErrConflict", domain.ErrConflict},
+		{"ErrForbidden", domain.ErrForbidden},
+		{"ErrUnavailable", domain.ErrUnavailable},
 	}
 
 	for _, tt := range sentinels {

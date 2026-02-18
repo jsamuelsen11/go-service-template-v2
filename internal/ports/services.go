@@ -3,7 +3,8 @@ package ports
 import (
 	"context"
 
-	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
 
 // ProjectService defines the service port for project aggregate operations.
@@ -12,21 +13,21 @@ import (
 // concept through the anti-corruption layer.
 type ProjectService interface {
 	// ListProjects returns all projects without populating their todos.
-	ListProjects(ctx context.Context) ([]domain.Project, error)
+	ListProjects(ctx context.Context) ([]project.Project, error)
 
 	// GetProject returns a single project by ID with its todos populated.
 	// Returns domain.ErrNotFound if the project does not exist.
-	GetProject(ctx context.Context, id int64) (*domain.Project, error)
+	GetProject(ctx context.Context, id int64) (*project.Project, error)
 
 	// CreateProject creates a new project and returns the created entity
 	// with server-assigned fields (ID, timestamps).
 	// Returns domain.ErrValidation if the project fails validation.
-	CreateProject(ctx context.Context, project *domain.Project) (*domain.Project, error)
+	CreateProject(ctx context.Context, project *project.Project) (*project.Project, error)
 
 	// UpdateProject updates an existing project's metadata and returns
 	// the updated entity.
 	// Returns domain.ErrNotFound if the project does not exist.
-	UpdateProject(ctx context.Context, id int64, project *domain.Project) (*domain.Project, error)
+	UpdateProject(ctx context.Context, id int64, project *project.Project) (*project.Project, error)
 
 	// DeleteProject deletes a project. Todos in the project become ungrouped.
 	// Returns domain.ErrNotFound if the project does not exist.
@@ -35,11 +36,11 @@ type ProjectService interface {
 	// AddTodo creates a new todo within the specified project.
 	// Returns domain.ErrNotFound if the project does not exist.
 	// Returns domain.ErrValidation if the todo fails validation.
-	AddTodo(ctx context.Context, projectID int64, todo *domain.Todo) (*domain.Todo, error)
+	AddTodo(ctx context.Context, projectID int64, todo *todo.Todo) (*todo.Todo, error)
 
 	// UpdateTodo updates an existing todo within the specified project.
 	// Returns domain.ErrNotFound if the project or todo does not exist.
-	UpdateTodo(ctx context.Context, projectID, todoID int64, todo *domain.Todo) (*domain.Todo, error)
+	UpdateTodo(ctx context.Context, projectID, todoID int64, todo *todo.Todo) (*todo.Todo, error)
 
 	// RemoveTodo deletes a todo from the specified project.
 	// Returns domain.ErrNotFound if the project or todo does not exist.

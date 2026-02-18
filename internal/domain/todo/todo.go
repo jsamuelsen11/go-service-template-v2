@@ -1,18 +1,23 @@
-package domain
+package todo
 
 import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
+
+// msgRequired is the validation message for mandatory fields.
+const msgRequired = "is required"
 
 // Todo represents a task item with progress tracking.
 type Todo struct {
 	ID              int64
 	Title           string
 	Description     string
-	Status          TodoStatus
-	Category        TodoCategory
+	Status          Status
+	Category        Category
 	ProgressPercent int
 	ProjectID       *int64
 	CreatedAt       time.Time
@@ -20,7 +25,7 @@ type Todo struct {
 }
 
 // Validate checks business rules for the Todo entity.
-// Returns a *ValidationError (wrapping ErrValidation) with per-field details,
+// Returns a *domain.ValidationError (wrapping domain.ErrValidation) with per-field details,
 // or nil if all rules pass.
 func (t *Todo) Validate() error {
 	fields := make(map[string]string)
@@ -45,7 +50,7 @@ func (t *Todo) Validate() error {
 	}
 
 	if len(fields) > 0 {
-		return &ValidationError{Fields: fields}
+		return &domain.ValidationError{Fields: fields}
 	}
 	return nil
 }

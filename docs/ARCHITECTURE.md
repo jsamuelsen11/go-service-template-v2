@@ -570,15 +570,15 @@ Domain services contain pure business logic with no infrastructure dependencies.
 They can be tested without mocks and belong in `/internal/domain/` alongside entities.
 
 ```go
-// internal/domain/progress.go - Domain Service (Pure Logic)
+// internal/domain/todo/progress.go - Domain Service (Pure Logic)
 func CalculateProjectProgress(todos []Todo) int {
     // Pure business rule - no I/O, no logging
     if len(todos) == 0 {
         return 0
     }
     var total int
-    for _, t := range todos {
-        total += int(t.ProgressPercent)
+    for i := range todos {
+        total += todos[i].ProgressPercent
     }
     return total / len(todos)
 }
@@ -642,43 +642,43 @@ func (s *ProjectService) CreateProject(ctx context.Context, project *domain.Proj
 ```go
 // ❌ WRONG - Business rule lives in the application layer
 // internal/app/project_service.go
-func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, todo *domain.Todo) (*domain.Todo, error) {
+func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, td *todo.Todo) (*todo.Todo, error) {
     project, _ := s.todoClient.GetProject(ctx, projectID)
-    todos, _ := s.todoClient.GetProjectTodos(ctx, projectID, domain.TodoFilter{})
+    todos, _ := s.todoClient.GetProjectTodos(ctx, projectID, todo.Filter{})
 
     if len(todos) >= project.MaxTodos { // Business rule in application layer!
         return nil, domain.ErrValidation
     }
 
-    return s.todoClient.CreateTodo(ctx, todo)
+    return s.todoClient.CreateTodo(ctx, td)
 }
 
 // ✅ RIGHT - Domain owns the rule, application layer orchestrates data fetching
-// internal/domain/project.go
+// internal/domain/project/project.go
 func (p *Project) CanAddTodo(currentCount int) error {
     if currentCount >= p.MaxTodos {
-        return fmt.Errorf("project at capacity (%d/%d): %w", currentCount, p.MaxTodos, ErrValidation)
+        return fmt.Errorf("project at capacity (%d/%d): %w", currentCount, p.MaxTodos, domain.ErrValidation)
     }
     return nil
 }
 
 // internal/app/project_service.go
-func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, todo *domain.Todo) (*domain.Todo, error) {
-    project, err := s.todoClient.GetProject(ctx, projectID)
+func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, td *todo.Todo) (*todo.Todo, error) {
+    proj, err := s.todoClient.GetProject(ctx, projectID)
     if err != nil {
         return nil, err
     }
 
-    todos, err := s.todoClient.GetProjectTodos(ctx, projectID, domain.TodoFilter{})
+    todos, err := s.todoClient.GetProjectTodos(ctx, projectID, todo.Filter{})
     if err != nil {
         return nil, err
     }
 
-    if err := project.CanAddTodo(len(todos)); err != nil { // Domain rule
+    if err := proj.CanAddTodo(len(todos)); err != nil { // Domain rule
         return nil, err
     }
 
-    return s.todoClient.CreateTodo(ctx, todo)
+    return s.todoClient.CreateTodo(ctx, td)
 }
 ```
 
@@ -700,9 +700,9 @@ Application services coordinate multiple operations using two patterns:
 Simple, synchronous execution where each step must complete before the next:
 
 ```go
-func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, todo *domain.Todo) (*domain.Todo, error) {
+func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, td *todo.Todo) (*todo.Todo, error) {
     // Step 1: Validate
-    if err := todo.Validate(); err != nil {
+    if err := td.Validate(); err != nil {
         return nil, err
     }
 
@@ -713,8 +713,8 @@ func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, todo *dom
     }
 
     // Step 3: Create todo in project
-    todo.ProjectID = &projectID
-    created, err := s.todoClient.CreateTodo(ctx, todo)
+    td.ProjectID = &projectID
+    created, err := s.todoClient.CreateTodo(ctx, td)
     if err != nil {
         return nil, fmt.Errorf("creating todo: %w", err)
     }
@@ -790,8 +790,8 @@ func (s *ProjectService) GetProject(ctx context.Context, id int64) (*domain.Proj
         return nil, err
     }
 
-    p := project.(*domain.Project)
-    p.Todos = todos.([]domain.Todo)
+    p := proj.(*project.Project)
+    p.Todos = todos.([]todo.Todo)
     return p, nil
 }
 ```
@@ -850,19 +850,19 @@ bounded contexts:
 ```go
 // app/processors/processor.go
 type TodoProcessor interface {
-    Process(ctx context.Context, todo *domain.Todo) error
-    Category() domain.TodoCategory
+    Process(ctx context.Context, td *todo.Todo) error
+    Category() todo.Category
 }
 
 // app/processors/work.go
 type WorkProcessor struct { /* project tracking, sprint integration */ }
-func (p *WorkProcessor) Process(ctx context.Context, todo *domain.Todo) error { ... }
-func (p *WorkProcessor) Category() domain.TodoCategory { return domain.CategoryWork }
+func (p *WorkProcessor) Process(ctx context.Context, td *todo.Todo) error { ... }
+func (p *WorkProcessor) Category() todo.Category { return todo.CategoryWork }
 
 // app/processors/personal.go
 type PersonalProcessor struct { /* reminders, recurring schedules */ }
-func (p *PersonalProcessor) Process(ctx context.Context, todo *domain.Todo) error { ... }
-func (p *PersonalProcessor) Category() domain.TodoCategory { return domain.CategoryPersonal }
+func (p *PersonalProcessor) Process(ctx context.Context, td *todo.Todo) error { ... }
+func (p *PersonalProcessor) Category() todo.Category { return todo.CategoryPersonal }
 ```
 
 The application service selects the appropriate processor:
@@ -870,16 +870,16 @@ The application service selects the appropriate processor:
 ```go
 // app/project_service.go
 type ProjectService struct {
-    processors map[domain.TodoCategory]processors.TodoProcessor
+    processors map[todo.Category]processors.TodoProcessor
     // ...
 }
 
-func (s *ProjectService) ProcessTodo(ctx context.Context, todo *domain.Todo) error {
-    proc, ok := s.processors[todo.Category]
+func (s *ProjectService) ProcessTodo(ctx context.Context, td *todo.Todo) error {
+    proc, ok := s.processors[td.Category]
     if !ok {
         return domain.ErrValidation
     }
-    return proc.Process(ctx, todo)
+    return proc.Process(ctx, td)
 }
 ```
 

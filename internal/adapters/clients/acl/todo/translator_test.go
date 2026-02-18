@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	domtodo "github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
 
 func ptrInt64(v int64) *int64 { return &v }
@@ -35,11 +35,11 @@ func TestToDomainTodo_FieldMapping(t *testing.T) {
 	if got.Description != "Milk, eggs, bread" {
 		t.Errorf("Description = %q, want %q", got.Description, "Milk, eggs, bread")
 	}
-	if got.Status != domain.StatusPending {
-		t.Errorf("Status = %q, want %q", got.Status, domain.StatusPending)
+	if got.Status != domtodo.StatusPending {
+		t.Errorf("Status = %q, want %q", got.Status, domtodo.StatusPending)
 	}
-	if got.Category != domain.CategoryPersonal {
-		t.Errorf("Category = %q, want %q", got.Category, domain.CategoryPersonal)
+	if got.Category != domtodo.CategoryPersonal {
+		t.Errorf("Category = %q, want %q", got.Category, domtodo.CategoryPersonal)
 	}
 	if got.ProgressPercent != 25 {
 		t.Errorf("ProgressPercent = %d, want 25", got.ProgressPercent)
@@ -206,16 +206,16 @@ func TestToCreateTodoRequest(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		todo   *domain.Todo
+		todo   *domtodo.Todo
 		verify func(t *testing.T, got CreateTodoRequestDTO)
 	}{
 		{
 			name: "maps all fields",
-			todo: &domain.Todo{
+			todo: &domtodo.Todo{
 				Title:           "Buy groceries",
 				Description:     "Milk, eggs, bread",
-				Status:          domain.StatusPending,
-				Category:        domain.CategoryPersonal,
+				Status:          domtodo.StatusPending,
+				Category:        domtodo.CategoryPersonal,
 				ProgressPercent: 50,
 				ProjectID:       &projectID,
 			},
@@ -240,9 +240,9 @@ func TestToCreateTodoRequest(t *testing.T) {
 		},
 		{
 			name: "ProjectID maps to GroupID",
-			todo: &domain.Todo{
-				Status:    domain.StatusPending,
-				Category:  domain.CategoryWork,
+			todo: &domtodo.Todo{
+				Status:    domtodo.StatusPending,
+				Category:  domtodo.CategoryWork,
 				ProjectID: &projectID,
 			},
 			verify: func(t *testing.T, got CreateTodoRequestDTO) {
@@ -257,9 +257,9 @@ func TestToCreateTodoRequest(t *testing.T) {
 		},
 		{
 			name: "nil ProjectID maps to nil GroupID",
-			todo: &domain.Todo{
-				Status:    domain.StatusPending,
-				Category:  domain.CategoryWork,
+			todo: &domtodo.Todo{
+				Status:    domtodo.StatusPending,
+				Category:  domtodo.CategoryWork,
 				ProjectID: nil,
 			},
 			verify: func(t *testing.T, got CreateTodoRequestDTO) {
@@ -299,16 +299,16 @@ func TestToUpdateTodoRequest(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		todo   *domain.Todo
+		todo   *domtodo.Todo
 		verify func(t *testing.T, got UpdateTodoRequestDTO)
 	}{
 		{
 			name: "sets all fields as pointers",
-			todo: &domain.Todo{
+			todo: &domtodo.Todo{
 				Title:           "Updated title",
 				Description:     "Updated desc",
-				Status:          domain.StatusInProgress,
-				Category:        domain.CategoryWork,
+				Status:          domtodo.StatusInProgress,
+				Category:        domtodo.CategoryWork,
 				ProgressPercent: 75,
 				ProjectID:       &projectID,
 			},
@@ -324,9 +324,9 @@ func TestToUpdateTodoRequest(t *testing.T) {
 		},
 		{
 			name: "nil ProjectID maps to nil GroupID",
-			todo: &domain.Todo{
-				Status:    domain.StatusDone,
-				Category:  domain.CategoryOther,
+			todo: &domtodo.Todo{
+				Status:    domtodo.StatusDone,
+				Category:  domtodo.CategoryOther,
 				ProjectID: nil,
 			},
 			verify: func(t *testing.T, got UpdateTodoRequestDTO) {

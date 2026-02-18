@@ -6,18 +6,18 @@ import (
 	"time"
 
 	"github.com/jsamuelsen11/go-service-template-v2/internal/adapters/http/dto"
-	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
 
 var testTime = time.Date(2026, 2, 12, 15, 4, 5, 0, time.UTC)
 
-func validTodo() domain.Todo {
-	return domain.Todo{
+func validTodo() todo.Todo {
+	return todo.Todo{
 		ID:              1,
 		Title:           "Buy groceries",
 		Description:     "Milk, eggs, bread",
-		Status:          domain.StatusPending,
-		Category:        domain.CategoryPersonal,
+		Status:          todo.StatusPending,
+		Category:        todo.CategoryPersonal,
 		ProgressPercent: 0,
 		CreatedAt:       testTime,
 		UpdatedAt:       testTime,
@@ -29,7 +29,7 @@ func TestToTodoResponse(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		todo   domain.Todo
+		todo   todo.Todo
 		verify func(t *testing.T, got dto.TodoResponse)
 	}{
 		{
@@ -53,9 +53,9 @@ func TestToTodoResponse(t *testing.T) {
 		},
 		{
 			name: "status converts to string",
-			todo: func() domain.Todo {
+			todo: func() todo.Todo {
 				td := validTodo()
-				td.Status = domain.StatusInProgress
+				td.Status = todo.StatusInProgress
 				return td
 			}(),
 			verify: func(t *testing.T, got dto.TodoResponse) {
@@ -67,9 +67,9 @@ func TestToTodoResponse(t *testing.T) {
 		},
 		{
 			name: "category converts to string",
-			todo: func() domain.Todo {
+			todo: func() todo.Todo {
 				td := validTodo()
-				td.Category = domain.CategoryWork
+				td.Category = todo.CategoryWork
 				return td
 			}(),
 			verify: func(t *testing.T, got dto.TodoResponse) {
@@ -109,19 +109,19 @@ func TestToTodoListResponse(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		todos     []domain.Todo
+		todos     []todo.Todo
 		wantCount int
 		wantLen   int
 	}{
 		{
 			name:      "converts multiple todos",
-			todos:     []domain.Todo{validTodo(), validTodo()},
+			todos:     []todo.Todo{validTodo(), validTodo()},
 			wantCount: 2,
 			wantLen:   2,
 		},
 		{
 			name:      "empty slice returns empty list",
-			todos:     []domain.Todo{},
+			todos:     []todo.Todo{},
 			wantCount: 0,
 			wantLen:   0,
 		},
@@ -150,12 +150,12 @@ func TestToTodoListResponse(t *testing.T) {
 func TestTodoResponse_JSONSerialization(t *testing.T) {
 	t.Parallel()
 
-	resp := dto.ToTodoResponse(&domain.Todo{
+	resp := dto.ToTodoResponse(&todo.Todo{
 		ID:              42,
 		Title:           "Test",
 		Description:     "Desc",
-		Status:          domain.StatusDone,
-		Category:        domain.CategoryOther,
+		Status:          todo.StatusDone,
+		Category:        todo.CategoryOther,
 		ProgressPercent: 100,
 		CreatedAt:       testTime,
 		UpdatedAt:       testTime,

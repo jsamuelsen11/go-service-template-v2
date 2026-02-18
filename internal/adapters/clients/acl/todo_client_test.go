@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/platform/config"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/platform/httpclient"
 )
@@ -75,7 +77,7 @@ func TestTodoClient_ListTodos(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	todos, err := client.ListTodos(context.Background(), domain.TodoFilter{})
+	todos, err := client.ListTodos(context.Background(), todo.Filter{})
 	if err != nil {
 		t.Fatalf("ListTodos() error = %v", err)
 	}
@@ -99,9 +101,9 @@ func TestTodoClient_ListTodos_WithFilter(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	_, err := client.ListTodos(context.Background(), domain.TodoFilter{
-		Status:   domain.StatusPending,
-		Category: domain.CategoryWork,
+	_, err := client.ListTodos(context.Background(), todo.Filter{
+		Status:   todo.StatusPending,
+		Category: todo.CategoryWork,
 	})
 	if err != nil {
 		t.Fatalf("ListTodos() error = %v", err)
@@ -130,15 +132,15 @@ func TestTodoClient_GetTodo(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	todo, err := client.GetTodo(context.Background(), 42)
+	td, err := client.GetTodo(context.Background(), 42)
 	if err != nil {
 		t.Fatalf("GetTodo() error = %v", err)
 	}
-	if todo.ID != 42 {
-		t.Errorf("ID = %d, want 42", todo.ID)
+	if td.ID != 42 {
+		t.Errorf("ID = %d, want 42", td.ID)
 	}
-	if todo.Status != domain.StatusDone {
-		t.Errorf("Status = %q, want %q", todo.Status, domain.StatusDone)
+	if td.Status != todo.StatusDone {
+		t.Errorf("Status = %q, want %q", td.Status, todo.StatusDone)
 	}
 }
 
@@ -184,11 +186,11 @@ func TestTodoClient_CreateTodo(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	input := &domain.Todo{
+	input := &todo.Todo{
 		Title:       "New todo",
 		Description: "Fresh",
-		Status:      domain.StatusPending,
-		Category:    domain.CategoryPersonal,
+		Status:      todo.StatusPending,
+		Category:    todo.CategoryPersonal,
 	}
 	created, err := client.CreateTodo(context.Background(), input)
 	if err != nil {
@@ -218,11 +220,11 @@ func TestTodoClient_UpdateTodo(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	input := &domain.Todo{
+	input := &todo.Todo{
 		Title:           "Updated",
 		Description:     "Changed",
-		Status:          domain.StatusInProgress,
-		Category:        domain.CategoryWork,
+		Status:          todo.StatusInProgress,
+		Category:        todo.CategoryWork,
 		ProgressPercent: 50,
 	}
 	updated, err := client.UpdateTodo(context.Background(), 5, input)
@@ -319,12 +321,12 @@ func TestTodoClient_GetProject(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	project, err := client.GetProject(context.Background(), 3)
+	proj, err := client.GetProject(context.Background(), 3)
 	if err != nil {
 		t.Fatalf("GetProject() error = %v", err)
 	}
-	if project.ID != 3 {
-		t.Errorf("ID = %d, want 3", project.ID)
+	if proj.ID != 3 {
+		t.Errorf("ID = %d, want 3", proj.ID)
 	}
 }
 
@@ -346,7 +348,7 @@ func TestTodoClient_CreateProject(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	input := &domain.Project{Name: "New project", Description: "A project"}
+	input := &project.Project{Name: "New project", Description: "A project"}
 	created, err := client.CreateProject(context.Background(), input)
 	if err != nil {
 		t.Fatalf("CreateProject() error = %v", err)
@@ -373,7 +375,7 @@ func TestTodoClient_UpdateProject(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	input := &domain.Project{Name: "Renamed", Description: "Updated desc"}
+	input := &project.Project{Name: "Renamed", Description: "Updated desc"}
 	updated, err := client.UpdateProject(context.Background(), 5, input)
 	if err != nil {
 		t.Fatalf("UpdateProject() error = %v", err)
@@ -422,7 +424,7 @@ func TestTodoClient_GetProjectTodos(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	todos, err := client.GetProjectTodos(context.Background(), 2, domain.TodoFilter{})
+	todos, err := client.GetProjectTodos(context.Background(), 2, todo.Filter{})
 	if err != nil {
 		t.Fatalf("GetProjectTodos() error = %v", err)
 	}
@@ -453,7 +455,7 @@ func TestTodoClient_CreateTodo_ValidationError(t *testing.T) {
 	defer ts.Close()
 
 	client := NewTodoClient(newTestClient(t, ts.URL), slog.Default())
-	_, err := client.CreateTodo(context.Background(), &domain.Todo{})
+	_, err := client.CreateTodo(context.Background(), &todo.Todo{})
 	if !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("CreateTodo() error = %v, want ErrValidation", err)
 	}
@@ -491,22 +493,22 @@ func TestFilterQuery(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		filter domain.TodoFilter
+		filter todo.Filter
 		want   string
 	}{
 		{
 			name:   "empty filter produces empty string",
-			filter: domain.TodoFilter{},
+			filter: todo.Filter{},
 			want:   "",
 		},
 		{
 			name:   "status only",
-			filter: domain.TodoFilter{Status: domain.StatusPending},
+			filter: todo.Filter{Status: todo.StatusPending},
 			want:   "?status=pending",
 		},
 		{
 			name:   "category only",
-			filter: domain.TodoFilter{Category: domain.CategoryWork},
+			filter: todo.Filter{Category: todo.CategoryWork},
 			want:   "?category=work",
 		},
 	}
