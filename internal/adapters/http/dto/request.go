@@ -8,6 +8,60 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
 
+const (
+	msgRequired     = "is required"
+	msgMustNotEmpty = "must not be empty"
+)
+
+// CreateProjectRequest represents the JSON body for creating a new project.
+type CreateProjectRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// Validate checks that required fields are present.
+// Returns a *domain.ValidationError if any checks fail.
+func (r *CreateProjectRequest) Validate() error {
+	fields := make(map[string]string)
+
+	if strings.TrimSpace(r.Name) == "" {
+		fields["name"] = msgRequired
+	}
+	if strings.TrimSpace(r.Description) == "" {
+		fields["description"] = msgRequired
+	}
+
+	if len(fields) > 0 {
+		return &domain.ValidationError{Fields: fields}
+	}
+	return nil
+}
+
+// UpdateProjectRequest represents the JSON body for updating an existing project.
+// All fields are optional; nil means "do not change this field.".
+type UpdateProjectRequest struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// Validate checks that any provided fields have valid values.
+// Returns a *domain.ValidationError if any checks fail.
+func (r *UpdateProjectRequest) Validate() error {
+	fields := make(map[string]string)
+
+	if r.Name != nil && strings.TrimSpace(*r.Name) == "" {
+		fields["name"] = msgMustNotEmpty
+	}
+	if r.Description != nil && strings.TrimSpace(*r.Description) == "" {
+		fields["description"] = msgMustNotEmpty
+	}
+
+	if len(fields) > 0 {
+		return &domain.ValidationError{Fields: fields}
+	}
+	return nil
+}
+
 // CreateTodoRequest represents the JSON body for creating a new TODO item.
 type CreateTodoRequest struct {
 	Title           string `json:"title"`
@@ -23,10 +77,10 @@ func (r *CreateTodoRequest) Validate() error {
 	fields := make(map[string]string)
 
 	if strings.TrimSpace(r.Title) == "" {
-		fields["title"] = "is required"
+		fields["title"] = msgRequired
 	}
 	if strings.TrimSpace(r.Description) == "" {
-		fields["description"] = "is required"
+		fields["description"] = msgRequired
 	}
 	if r.Status != "" && !todo.Status(r.Status).IsValid() {
 		fields["status"] = fmt.Sprintf("invalid: %q", r.Status)
@@ -60,10 +114,10 @@ func (r *UpdateTodoRequest) Validate() error {
 	fields := make(map[string]string)
 
 	if r.Title != nil && strings.TrimSpace(*r.Title) == "" {
-		fields["title"] = "must not be empty"
+		fields["title"] = msgMustNotEmpty
 	}
 	if r.Description != nil && strings.TrimSpace(*r.Description) == "" {
-		fields["description"] = "must not be empty"
+		fields["description"] = msgMustNotEmpty
 	}
 	if r.Status != nil && !todo.Status(*r.Status).IsValid() {
 		fields["status"] = fmt.Sprintf("invalid: %q", *r.Status)
