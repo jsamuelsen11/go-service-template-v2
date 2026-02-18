@@ -3,4 +3,6 @@ packages:
   github.com/jsamuelsen11/go-service-template-v2/internal/ports:
     config:
       all: true
+      dir: "mocks"
+      outpkg: "mocks"
     interfaces: {}
