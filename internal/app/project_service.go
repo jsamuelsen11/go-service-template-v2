@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
@@ -24,9 +25,12 @@ type ProjectService struct {
 }
 
 // NewProjectService creates a ProjectService. The client port provides access
-// to the downstream TODO API for project and todo operations. The logger is
-// used for structured request/error logging.
+// to the downstream TODO API for project and todo operations. If logger is nil,
+// a no-op logger is used.
 func NewProjectService(client ports.TodoClient, logger *slog.Logger) *ProjectService {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
 	return &ProjectService{
 		todoClient: client,
 		logger:     logger,
@@ -43,7 +47,7 @@ func (s *ProjectService) ListProjects(ctx context.Context) ([]project.Project, e
 			slog.String("operation", "ListProjects"),
 			slog.Any("error", err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("listing projects: %w", err)
 	}
 
 	return projects, nil
@@ -60,7 +64,7 @@ func (s *ProjectService) GetProject(ctx context.Context, id int64) (*project.Pro
 			slog.Int64("id", id),
 			slog.Any("error", err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("fetching project: %w", err)
 	}
 
 	todos, err := s.todoClient.GetProjectTodos(ctx, id, todo.Filter{})
@@ -70,7 +74,7 @@ func (s *ProjectService) GetProject(ctx context.Context, id int64) (*project.Pro
 			slog.Int64("project_id", id),
 			slog.Any("error", err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("fetching project todos: %w", err)
 	}
 
 	proj.Todos = todos
@@ -80,6 +84,10 @@ func (s *ProjectService) GetProject(ctx context.Context, id int64) (*project.Pro
 // CreateProject validates and creates a new project, returning the created
 // entity with server-assigned fields (ID, timestamps).
 func (s *ProjectService) CreateProject(ctx context.Context, p *project.Project) (*project.Project, error) {
+	if p == nil {
+		return nil, &domain.ValidationError{Fields: map[string]string{"project": "is required"}}
+	}
+
 	s.logger.InfoContext(ctx, "creating project", slog.String("name", p.Name))
 
 	if err := p.Validate(); err != nil {
@@ -92,7 +100,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, p *project.Project) 
 			slog.String("operation", "CreateProject"),
 			slog.Any("error", err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("creating project: %w", err)
 	}
 
 	return created, nil
@@ -100,6 +108,10 @@ func (s *ProjectService) CreateProject(ctx context.Context, p *project.Project) 
 
 // UpdateProject validates and updates an existing project's metadata.
 func (s *ProjectService) UpdateProject(ctx context.Context, id int64, p *project.Project) (*project.Project, error) {
+	if p == nil {
+		return nil, &domain.ValidationError{Fields: map[string]string{"project": "is required"}}
+	}
+
 	s.logger.InfoContext(ctx, "updating project", slog.Int64("id", id))
 
 	if err := p.Validate(); err != nil {
@@ -113,7 +125,7 @@ func (s *ProjectService) UpdateProject(ctx context.Context, id int64, p *project
 			slog.Int64("id", id),
 			slog.Any("error", err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("updating project: %w", err)
 	}
 
 	return updated, nil
@@ -129,7 +141,7 @@ func (s *ProjectService) DeleteProject(ctx context.Context, id int64) error {
 			slog.Int64("id", id),
 			slog.Any("error", err),
 		)
-		return err
+		return fmt.Errorf("deleting project: %w", err)
 	}
 
 	return nil
@@ -137,6 +149,10 @@ func (s *ProjectService) DeleteProject(ctx context.Context, id int64) error {
 
 // AddTodo creates a new todo within the specified project.
 func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, td *todo.Todo) (*todo.Todo, error) {
+	if td == nil {
+		return nil, &domain.ValidationError{Fields: map[string]string{"todo": "is required"}}
+	}
+
 	s.logger.InfoContext(ctx, "adding todo to project", slog.Int64("project_id", projectID))
 
 	if err := td.Validate(); err != nil {
@@ -169,6 +185,10 @@ func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, td *todo.
 
 // UpdateTodo updates an existing todo within the specified project.
 func (s *ProjectService) UpdateTodo(ctx context.Context, projectID, todoID int64, td *todo.Todo) (*todo.Todo, error) {
+	if td == nil {
+		return nil, &domain.ValidationError{Fields: map[string]string{"todo": "is required"}}
+	}
+
 	s.logger.InfoContext(ctx, "updating todo in project",
 		slog.Int64("project_id", projectID),
 		slog.Int64("todo_id", todoID),
@@ -186,6 +206,21 @@ func (s *ProjectService) UpdateTodo(ctx context.Context, projectID, todoID int64
 			slog.Any("error", err),
 		)
 		return nil, fmt.Errorf("verifying project: %w", err)
+	}
+
+	existing, err := s.todoClient.GetTodo(ctx, todoID)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to fetch todo",
+			slog.String("operation", "UpdateTodo"),
+			slog.Int64("project_id", projectID),
+			slog.Int64("todo_id", todoID),
+			slog.Any("error", err),
+		)
+		return nil, fmt.Errorf("fetching todo: %w", err)
+	}
+
+	if existing.ProjectID == nil || *existing.ProjectID != projectID {
+		return nil, fmt.Errorf("todo %d does not belong to project %d: %w", todoID, projectID, domain.ErrNotFound)
 	}
 
 	td.ProjectID = &projectID
@@ -219,6 +254,21 @@ func (s *ProjectService) RemoveTodo(ctx context.Context, projectID, todoID int64
 			slog.Any("error", err),
 		)
 		return fmt.Errorf("verifying project: %w", err)
+	}
+
+	existing, err := s.todoClient.GetTodo(ctx, todoID)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to fetch todo",
+			slog.String("operation", "RemoveTodo"),
+			slog.Int64("project_id", projectID),
+			slog.Int64("todo_id", todoID),
+			slog.Any("error", err),
+		)
+		return fmt.Errorf("fetching todo: %w", err)
+	}
+
+	if existing.ProjectID == nil || *existing.ProjectID != projectID {
+		return fmt.Errorf("todo %d does not belong to project %d: %w", todoID, projectID, domain.ErrNotFound)
 	}
 
 	if err := s.todoClient.DeleteTodo(ctx, todoID); err != nil {

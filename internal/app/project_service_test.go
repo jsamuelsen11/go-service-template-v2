@@ -44,6 +44,18 @@ func validTodo() todo.Todo {
 	}
 }
 
+// --- NewProjectService ---
+
+func TestNewProjectService_NilLogger(t *testing.T) {
+	t.Parallel()
+	mockClient := mocks.NewMockTodoClient(t)
+
+	svc := NewProjectService(mockClient, nil)
+	if svc.logger == nil {
+		t.Fatal("NewProjectService(nil logger) should create a no-op logger, got nil")
+	}
+}
+
 // --- ListProjects ---
 
 func TestProjectService_ListProjects(t *testing.T) {
@@ -170,6 +182,17 @@ func TestProjectService_CreateProject(t *testing.T) {
 		}
 	})
 
+	t.Run("returns validation error for nil project", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		_, err := svc.CreateProject(context.Background(), nil)
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("CreateProject(nil) error = %v, want ErrValidation", err)
+		}
+	})
+
 	t.Run("returns validation error for invalid project", func(t *testing.T) {
 		t.Parallel()
 		mockClient := mocks.NewMockTodoClient(t)
@@ -219,6 +242,17 @@ func TestProjectService_UpdateProject(t *testing.T) {
 		}
 		if got.Name != "Updated" {
 			t.Errorf("UpdateProject().Name = %q, want %q", got.Name, "Updated")
+		}
+	})
+
+	t.Run("returns validation error for nil project", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		_, err := svc.UpdateProject(context.Background(), 1, nil)
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("UpdateProject(nil) error = %v, want ErrValidation", err)
 		}
 	})
 
@@ -315,6 +349,17 @@ func TestProjectService_AddTodo(t *testing.T) {
 		}
 	})
 
+	t.Run("returns validation error for nil todo", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		_, err := svc.AddTodo(context.Background(), 1, nil)
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("AddTodo(nil) error = %v, want ErrValidation", err)
+		}
+	})
+
 	t.Run("returns validation error for invalid todo", func(t *testing.T) {
 		t.Parallel()
 		mockClient := mocks.NewMockTodoClient(t)
@@ -372,13 +417,17 @@ func TestProjectService_UpdateTodo(t *testing.T) {
 		proj := validProject()
 		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
 
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = int64Ptr(1)
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
+
 		td := validTodo()
 		updated := validTodo()
 		updated.ID = 10
 		updated.ProjectID = int64Ptr(1)
 		updated.Title = "Updated title"
 
-		// Verify todoID (10) is passed to client, not projectID (1)
 		mockClient.EXPECT().UpdateTodo(mock.Anything, int64(10), &td).Return(&updated, nil)
 
 		got, err := svc.UpdateTodo(context.Background(), 1, 10, &td)
@@ -390,6 +439,17 @@ func TestProjectService_UpdateTodo(t *testing.T) {
 		}
 		if td.ProjectID == nil || *td.ProjectID != 1 {
 			t.Errorf("todo.ProjectID = %v, want 1", td.ProjectID)
+		}
+	})
+
+	t.Run("returns validation error for nil todo", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		_, err := svc.UpdateTodo(context.Background(), 1, 10, nil)
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("UpdateTodo(nil) error = %v, want ErrValidation", err)
 		}
 	})
 
@@ -420,6 +480,22 @@ func TestProjectService_UpdateTodo(t *testing.T) {
 		}
 	})
 
+	t.Run("returns error when fetching todo fails", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(nil, domain.ErrNotFound)
+
+		td := validTodo()
+		_, err := svc.UpdateTodo(context.Background(), 1, 10, &td)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("UpdateTodo() error = %v, want ErrNotFound", err)
+		}
+	})
+
 	t.Run("returns error when update fails", func(t *testing.T) {
 		t.Parallel()
 		mockClient := mocks.NewMockTodoClient(t)
@@ -427,7 +503,58 @@ func TestProjectService_UpdateTodo(t *testing.T) {
 
 		proj := validProject()
 		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
-		mockClient.EXPECT().UpdateTodo(mock.Anything, int64(10), mock.Anything).Return(nil, domain.ErrNotFound)
+
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = int64Ptr(1)
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
+		mockClient.EXPECT().UpdateTodo(mock.Anything, int64(10), mock.Anything).Return(nil, domain.ErrUnavailable)
+
+		td := validTodo()
+		_, err := svc.UpdateTodo(context.Background(), 1, 10, &td)
+		if !errors.Is(err, domain.ErrUnavailable) {
+			t.Errorf("UpdateTodo() error = %v, want ErrUnavailable", err)
+		}
+	})
+}
+
+// --- UpdateTodo ownership ---
+
+func TestProjectService_UpdateTodo_Ownership(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns error when todo belongs to different project", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = int64Ptr(999) // different project
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
+
+		td := validTodo()
+		_, err := svc.UpdateTodo(context.Background(), 1, 10, &td)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("UpdateTodo() error = %v, want ErrNotFound", err)
+		}
+	})
+
+	t.Run("returns error when todo has nil ProjectID", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = nil // ungrouped todo
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
 
 		td := validTodo()
 		_, err := svc.UpdateTodo(context.Background(), 1, 10, &td)
@@ -449,6 +576,11 @@ func TestProjectService_RemoveTodo(t *testing.T) {
 
 		proj := validProject()
 		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = int64Ptr(1)
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
 		mockClient.EXPECT().DeleteTodo(mock.Anything, int64(10)).Return(nil)
 
 		err := svc.RemoveTodo(context.Background(), 1, 10)
@@ -470,18 +602,76 @@ func TestProjectService_RemoveTodo(t *testing.T) {
 		}
 	})
 
-	t.Run("returns error when todo not found", func(t *testing.T) {
+	t.Run("returns error when fetching todo fails", func(t *testing.T) {
 		t.Parallel()
 		mockClient := mocks.NewMockTodoClient(t)
 		svc := NewProjectService(mockClient, discardLogger())
 
 		proj := validProject()
 		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
-		mockClient.EXPECT().DeleteTodo(mock.Anything, int64(99)).Return(domain.ErrNotFound)
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(99)).Return(nil, domain.ErrNotFound)
 
 		err := svc.RemoveTodo(context.Background(), 1, 99)
 		if !errors.Is(err, domain.ErrNotFound) {
 			t.Errorf("RemoveTodo() error = %v, want ErrNotFound", err)
+		}
+	})
+
+	t.Run("returns error when todo belongs to different project", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = int64Ptr(999) // different project
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
+
+		err := svc.RemoveTodo(context.Background(), 1, 10)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("RemoveTodo() error = %v, want ErrNotFound", err)
+		}
+	})
+
+	t.Run("returns error when todo has nil ProjectID", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = nil // ungrouped todo
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
+
+		err := svc.RemoveTodo(context.Background(), 1, 10)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("RemoveTodo() error = %v, want ErrNotFound", err)
+		}
+	})
+
+	t.Run("returns error when delete fails", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+		existing := validTodo()
+		existing.ID = 10
+		existing.ProjectID = int64Ptr(1)
+		mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing, nil)
+		mockClient.EXPECT().DeleteTodo(mock.Anything, int64(10)).Return(domain.ErrUnavailable)
+
+		err := svc.RemoveTodo(context.Background(), 1, 10)
+		if !errors.Is(err, domain.ErrUnavailable) {
+			t.Errorf("RemoveTodo() error = %v, want ErrUnavailable", err)
 		}
 	})
 }
