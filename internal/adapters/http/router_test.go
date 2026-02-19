@@ -17,14 +17,12 @@ import (
 func newTestRouter(t *testing.T) (http.Handler, *mocks.MockProjectService) {
 	t.Helper()
 	svc := mocks.NewMockProjectService(t)
-	client := mocks.NewMockTodoClient(t)
 	registry := mocks.NewMockHealthRegistry(t)
 
 	ph := handlers.NewProjectHandler(svc)
-	th := handlers.NewTodoHandler(client)
 	hh := handlers.NewHealthHandler(registry)
 
-	router := adapthttp.NewRouter(ph, th, hh)
+	router := adapthttp.NewRouter(ph, hh)
 	return router, svc
 }
 
@@ -47,11 +45,6 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		{http.MethodPost, "/api/v1/projects/{projectId}/todos"},
 		{http.MethodPatch, "/api/v1/projects/{projectId}/todos/{todoId}"},
 		{http.MethodDelete, "/api/v1/projects/{projectId}/todos/{todoId}"},
-		{http.MethodGet, "/api/v1/todos"},
-		{http.MethodPost, "/api/v1/todos"},
-		{http.MethodGet, "/api/v1/todos/{id}"},
-		{http.MethodPatch, "/api/v1/todos/{id}"},
-		{http.MethodDelete, "/api/v1/todos/{id}"},
 	}
 
 	chiRouter, ok := router.(*chi.Mux)
@@ -80,11 +73,9 @@ func TestRouter_MiddlewareApplied(t *testing.T) {
 	t.Parallel()
 
 	svc := mocks.NewMockProjectService(t)
-	client := mocks.NewMockTodoClient(t)
 	registry := mocks.NewMockHealthRegistry(t)
 
 	ph := handlers.NewProjectHandler(svc)
-	th := handlers.NewTodoHandler(client)
 	hh := handlers.NewHealthHandler(registry)
 
 	called := false
@@ -95,7 +86,7 @@ func TestRouter_MiddlewareApplied(t *testing.T) {
 		})
 	}
 
-	router := adapthttp.NewRouter(ph, th, hh, testMW)
+	router := adapthttp.NewRouter(ph, hh, testMW)
 
 	registry.EXPECT().CheckAll(mock.Anything).Return(map[string]error{})
 

@@ -25,43 +25,6 @@ func parseID(r *http.Request, param string) (int64, error) {
 	return id, nil
 }
 
-// parseTodoFilter extracts optional query parameters into a todo.Filter.
-func parseTodoFilter(r *http.Request) (todo.Filter, error) {
-	var f todo.Filter
-
-	if s := r.URL.Query().Get("status"); s != "" {
-		status := todo.Status(s)
-		if !status.IsValid() {
-			return f, &domain.ValidationError{
-				Fields: map[string]string{"status": "invalid status filter"},
-			}
-		}
-		f.Status = status
-	}
-
-	if c := r.URL.Query().Get("category"); c != "" {
-		cat := todo.Category(c)
-		if !cat.IsValid() {
-			return f, &domain.ValidationError{
-				Fields: map[string]string{"category": "invalid category filter"},
-			}
-		}
-		f.Category = cat
-	}
-
-	if pid := r.URL.Query().Get("project_id"); pid != "" {
-		id, err := strconv.ParseInt(pid, 10, 64)
-		if err != nil {
-			return f, &domain.ValidationError{
-				Fields: map[string]string{"project_id": "must be a valid integer"},
-			}
-		}
-		f.ProjectID = &id
-	}
-
-	return f, nil
-}
-
 // mapCreateTodoRequest converts a CreateTodoRequest DTO to a domain Todo entity.
 func mapCreateTodoRequest(req *dto.CreateTodoRequest) *todo.Todo {
 	t := &todo.Todo{

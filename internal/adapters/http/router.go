@@ -13,7 +13,6 @@ import (
 // Middleware is applied globally in the order given.
 func NewRouter(
 	projectHandler *handlers.ProjectHandler,
-	todoHandler *handlers.TodoHandler,
 	healthHandler *handlers.HealthHandler,
 	middlewares ...func(http.Handler) http.Handler,
 ) http.Handler {
@@ -40,13 +39,6 @@ func NewRouter(
 		r.Post("/projects/{projectId}/todos", projectHandler.AddProjectTodo)
 		r.Patch("/projects/{projectId}/todos/{todoId}", projectHandler.UpdateProjectTodo)
 		r.Delete("/projects/{projectId}/todos/{todoId}", projectHandler.RemoveProjectTodo)
-
-		// Flat todo CRUD.
-		r.Get("/todos", todoHandler.ListTodos)
-		r.Post("/todos", todoHandler.CreateTodo)
-		r.Get("/todos/{id}", todoHandler.GetTodo)
-		r.Patch("/todos/{id}", todoHandler.UpdateTodo)
-		r.Delete("/todos/{id}", todoHandler.DeleteTodo)
 	})
 
 	return r
