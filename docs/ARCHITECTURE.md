@@ -282,11 +282,13 @@ integrations coexist cleanly in the same `acl/` directory:
 
 **Infrastructure cross-cutting concerns** used by all layers.
 
-| Directory    | Purpose                              |
-| ------------ | ------------------------------------ |
-| `config/`    | Configuration loading and validation |
-| `logging/`   | Structured logging setup             |
-| `telemetry/` | OpenTelemetry tracing and metrics    |
+| Directory     | Purpose                                           |
+| ------------- | ------------------------------------------------- |
+| `config/`     | Configuration loading and validation              |
+| `health/`     | Thread-safe health check registry                 |
+| `httpclient/` | Instrumented HTTP client (circuit breaker, retry) |
+| `logging/`    | Structured logging setup                          |
+| `telemetry/`  | OpenTelemetry tracing and metrics                 |
 
 ### Scaling to Multiple Domains
 

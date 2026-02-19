@@ -30,8 +30,7 @@ var _ ports.TodoClient = (*TodoClient)(nil)
 // exponential backoff, OpenTelemetry tracing, and health checking
 // ([ports.HealthChecker]) for every outbound call.
 type TodoClient struct {
-	req    *Requester
-	logger *slog.Logger
+	req *Requester
 }
 
 // NewTodoClient creates a TodoClient that sends requests through the given
@@ -40,8 +39,7 @@ type TodoClient struct {
 // for error-level diagnostics on failed or unexpected responses.
 func NewTodoClient(client *httpclient.Client, logger *slog.Logger) *TodoClient {
 	return &TodoClient{
-		req:    NewRequester(client, logger),
-		logger: logger,
+		req: NewRequester(client, logger),
 	}
 }
 

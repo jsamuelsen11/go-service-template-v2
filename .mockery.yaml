@@ -1,8 +1,10 @@
 with-expecter: true
+resolve-type-alias: false
+disable-version-string: true
+issue-845-fix: true
 packages:
   github.com/jsamuelsen11/go-service-template-v2/internal/ports:
     config:
       all: true
       dir: "mocks"
       outpkg: "mocks"
-    interfaces: {}
