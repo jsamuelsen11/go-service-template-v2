@@ -21,6 +21,9 @@ client:
     max_failures: 5
     timeout: 30s
     half_open_limit: 1
+  rate_limit:
+    requests_per_second: 100
+    burst_size: 10
 
 telemetry:
   enabled: false
