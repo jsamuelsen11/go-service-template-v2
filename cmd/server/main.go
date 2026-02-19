@@ -125,8 +125,8 @@ func run() error {
 	return nil
 }
 
-// otelProviders bundles OpenTelemetry provider lifecycle. All fields are nil
-// when telemetry is disabled.
+// otelProviders bundles OpenTelemetry provider lifecycle. When telemetry is
+// disabled, tracer is nil and meter/metrics hold no-op implementations.
 type otelProviders struct {
 	tracer  *sdktrace.TracerProvider
 	meter   *sdkmetric.MeterProvider
@@ -151,7 +151,14 @@ func (o *otelProviders) Shutdown(ctx context.Context) error {
 
 func initTelemetry(ctx context.Context, cfg *config.Config) (*otelProviders, error) {
 	if !cfg.Telemetry.Enabled {
-		return &otelProviders{}, nil
+		// Create a no-op MeterProvider (no readers/exporters) so downstream
+		// consumers receive valid metric instruments instead of nil.
+		mp := sdkmetric.NewMeterProvider()
+		metrics, err := telemetry.NewMetrics(mp, cfg.Telemetry.ServiceName)
+		if err != nil {
+			return nil, fmt.Errorf("creating no-op metrics: %w", err)
+		}
+		return &otelProviders{meter: mp, metrics: metrics}, nil
 	}
 
 	tp, err := telemetry.InitTracer(ctx,

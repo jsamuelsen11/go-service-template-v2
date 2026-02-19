@@ -105,6 +105,36 @@ func TestCheckAll_ContextPropagated(t *testing.T) {
 	}
 }
 
+func TestCheckAll_DuplicateNames_LastWriteWins(t *testing.T) {
+	t.Parallel()
+
+	first := mocks.NewMockHealthChecker(t)
+	first.EXPECT().Name().Return("db")
+	first.EXPECT().HealthCheck(mock.Anything).Return(nil)
+
+	secondErr := errors.New("second failure")
+	second := mocks.NewMockHealthChecker(t)
+	second.EXPECT().Name().Return("db")
+	second.EXPECT().HealthCheck(mock.Anything).Return(secondErr)
+
+	r := health.New()
+	r.Register(first)
+	r.Register(second)
+
+	results := r.CheckAll(context.Background())
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	got, ok := results["db"]
+	if !ok {
+		t.Fatal(`expected result for key "db", but it was missing`)
+	}
+	if !errors.Is(got, secondErr) {
+		t.Errorf("db check = %v, want %v (from last registered checker)", got, secondErr)
+	}
+}
+
 func TestCheckAll_ConcurrentSafety(t *testing.T) {
 	t.Parallel()
 
@@ -114,7 +144,7 @@ func TestCheckAll_ConcurrentSafety(t *testing.T) {
 	const goroutines = 50
 
 	// Half the goroutines register checkers, half call CheckAll.
-	for i := range goroutines {
+	for i := 0; i < goroutines; i++ {
 		wg.Add(1)
 		if i%2 == 0 {
 			go func() {
