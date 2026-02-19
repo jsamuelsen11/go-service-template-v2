@@ -4,8 +4,9 @@ info:
   title: Go Service Template API
   description: >-
     A project and TODO management API built with hexagonal architecture.
-    Provides CRUD operations for projects and TODO items with progress tracking,
-    category filtering, and RFC 7807 problem detail error responses.
+    Provides CRUD operations for projects and project-scoped TODO items with
+    progress tracking, category filtering, and RFC 7807 problem detail error
+    responses.
   version: 0.1.0
 
 servers:
@@ -15,8 +16,6 @@ servers:
 tags:
   - name: projects
     description: Project management (collections of TODOs)
-  - name: todos
-    description: TODO item management
 
 paths:
   /api/v1/projects:
@@ -313,220 +312,8 @@ paths:
                 status: 404
                 detail: "TODO with ID 42 not found in project 1."
 
-  /api/v1/todos:
-    get:
-      summary: List all TODOs
-      description: Retrieve all TODO items, optionally filtered by status, category, and/or project.
-      operationId: list-todos
-      tags:
-        - todos
-      parameters:
-        - name: status
-          in: query
-          description: Filter by status
-          required: false
-          schema:
-            $ref: "#/components/schemas/TodoStatus"
-        - name: category
-          in: query
-          description: Filter by category
-          required: false
-          schema:
-            $ref: "#/components/schemas/TodoCategory"
-        - name: projectId
-          in: query
-          description: Filter by project ID
-          required: false
-          schema:
-            type: integer
-            format: int64
-      responses:
-        "200":
-          description: Successful response with list of TODOs.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TodoListResponse"
-              example:
-                todos:
-                  - id: 1
-                    title: Buy groceries
-                    description: Milk, eggs, bread
-                    status: pending
-                    category: personal
-                    progressPercent: 0
-                    createdAt: "2026-02-12T15:04:05Z"
-                    updatedAt: "2026-02-12T15:04:05Z"
-                count: 1
-        default:
-          description: Unexpected error during TODO listing.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-              example:
-                type: about:blank
-                title: Internal Server Error
-                status: 500
-                detail: An unexpected error occurred.
-
-    post:
-      summary: Create a new TODO
-      description: Create a new TODO item with optional progress tracking.
-      operationId: create-todo
-      tags:
-        - todos
-      requestBody:
-        description: The TODO item to create.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateTodoRequest"
-      responses:
-        "201":
-          description: TODO created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Todo"
-              example:
-                id: 1
-                title: Buy groceries
-                description: Milk, eggs, bread
-                status: pending
-                category: personal
-                progressPercent: 0
-                createdAt: "2026-02-12T15:04:05Z"
-                updatedAt: "2026-02-12T15:04:05Z"
-        default:
-          description: Validation or unexpected error during TODO creation.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-              example:
-                type: about:blank
-                title: Bad Request
-                status: 400
-                detail: "Property title is required but is missing."
-
-  /api/v1/todos/{id}:
-    get:
-      summary: Get a TODO by ID
-      description: Retrieve a single TODO item by its ID.
-      operationId: get-todo
-      tags:
-        - todos
-      parameters:
-        - $ref: "#/components/parameters/TodoId"
-      responses:
-        "200":
-          description: Successful response with the requested TODO.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Todo"
-              example:
-                id: 1
-                title: Buy groceries
-                description: Milk, eggs, bread
-                status: pending
-                category: personal
-                progressPercent: 0
-                createdAt: "2026-02-12T15:04:05Z"
-                updatedAt: "2026-02-12T15:04:05Z"
-        default:
-          description: Not found or unexpected error when fetching a TODO.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-              example:
-                type: about:blank
-                title: Not Found
-                status: 404
-                detail: "TODO with ID 42 not found."
-
-    patch:
-      summary: Update a TODO
-      description: Partially update an existing TODO item. Only provided fields are changed.
-      operationId: update-todo
-      tags:
-        - todos
-      parameters:
-        - $ref: "#/components/parameters/TodoId"
-      requestBody:
-        description: The fields to update on the TODO item.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateTodoRequest"
-      responses:
-        "200":
-          description: TODO updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Todo"
-              example:
-                id: 1
-                title: Buy groceries
-                description: Milk, eggs, bread, butter
-                status: in_progress
-                category: personal
-                progressPercent: 50
-                createdAt: "2026-02-12T15:04:05Z"
-                updatedAt: "2026-02-14T10:30:00Z"
-        default:
-          description: Validation, not found, or unexpected error when updating a TODO.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-              example:
-                type: about:blank
-                title: Not Found
-                status: 404
-                detail: "TODO with ID 42 not found."
-
-    delete:
-      summary: Delete a TODO
-      description: Delete a TODO item by its ID.
-      operationId: delete-todo
-      tags:
-        - todos
-      parameters:
-        - $ref: "#/components/parameters/TodoId"
-      responses:
-        "204":
-          description: TODO deleted successfully.
-        default:
-          description: Not found or unexpected error when deleting a TODO.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-              example:
-                type: about:blank
-                title: Not Found
-                status: 404
-                detail: "TODO with ID 42 not found."
-
 components:
   parameters:
-    TodoId:
-      name: id
-      in: path
-      description: TODO item ID
-      required: true
-      schema:
-        type: integer
-        format: int64
-        examples:
-          - 1
-
     ProjectId:
       name: id
       in: path
@@ -724,7 +511,7 @@ components:
 
     CreateTodoRequest:
       type: object
-      description: Request body for creating a new TODO item.
+      description: Request body for creating a new TODO item within a project.
       required:
         - title
         - description
@@ -752,16 +539,10 @@ components:
           maximum: 100
           examples:
             - 0
-        projectId:
-          type: integer
-          format: int64
-          description: ID of the project to assign this TODO to.
-          examples:
-            - 1
 
     UpdateTodoRequest:
       type: object
-      description: Request body for updating an existing TODO item. All fields are optional.
+      description: Request body for updating an existing TODO item within a project. All fields are optional.
       properties:
         title:
           type: string
@@ -786,40 +567,6 @@ components:
           maximum: 100
           examples:
             - 50
-        projectId:
-          type:
-            - integer
-            - "null"
-          format: int64
-          description: ID of the project to assign this TODO to, or null to ungrouped.
-          examples:
-            - 1
-
-    TodoListResponse:
-      type: object
-      description: Response containing a list of TODO items with a total count.
-      required:
-        - todos
-        - count
-      properties:
-        todos:
-          type: array
-          items:
-            $ref: "#/components/schemas/Todo"
-          example:
-            - id: 1
-              title: Buy groceries
-              description: Milk, eggs, bread
-              status: pending
-              category: personal
-              progressPercent: 0
-              createdAt: "2026-02-12T15:04:05Z"
-              updatedAt: "2026-02-12T15:04:05Z"
-        count:
-          type: integer
-          format: int64
-          examples:
-            - 5
 
     TodoStatus:
       type: string

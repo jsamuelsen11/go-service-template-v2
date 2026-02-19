@@ -220,6 +220,128 @@ func TestCreateTodoRequest_Validate_MultipleErrors(t *testing.T) {
 	}
 }
 
+func TestCreateProjectRequest_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		req       dto.CreateProjectRequest
+		wantErr   bool
+		wantField string
+	}{
+		{
+			name:    "valid request passes",
+			req:     dto.CreateProjectRequest{Name: "Sprint 1", Description: "First sprint"},
+			wantErr: false,
+		},
+		{
+			name:      "empty name fails",
+			req:       dto.CreateProjectRequest{Name: "", Description: "Desc"},
+			wantErr:   true,
+			wantField: "name",
+		},
+		{
+			name:      "whitespace-only name fails",
+			req:       dto.CreateProjectRequest{Name: "   ", Description: "Desc"},
+			wantErr:   true,
+			wantField: "name",
+		},
+		{
+			name:      "empty description fails",
+			req:       dto.CreateProjectRequest{Name: "Sprint 1", Description: ""},
+			wantErr:   true,
+			wantField: "description",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.req.Validate()
+			if tt.wantErr {
+				requireValidationField(t, err, tt.wantField)
+			} else if err != nil {
+				t.Errorf("Validate() = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestCreateProjectRequest_Validate_MultipleErrors(t *testing.T) {
+	t.Parallel()
+
+	req := dto.CreateProjectRequest{Name: "", Description: ""}
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want error with multiple failures")
+	}
+
+	var verr *domain.ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("errors.As(err, *ValidationError) = false, got %T", err)
+	}
+	if len(verr.Fields) != 2 {
+		t.Errorf("ValidationError.Fields has %d entries, want 2", len(verr.Fields))
+	}
+}
+
+func TestUpdateProjectRequest_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		req       dto.UpdateProjectRequest
+		wantErr   bool
+		wantField string
+	}{
+		{
+			name:    "all nil passes (no-op update)",
+			req:     dto.UpdateProjectRequest{},
+			wantErr: false,
+		},
+		{
+			name:    "valid name passes",
+			req:     dto.UpdateProjectRequest{Name: stringPtr("New name")},
+			wantErr: false,
+		},
+		{
+			name:      "empty name fails",
+			req:       dto.UpdateProjectRequest{Name: stringPtr("")},
+			wantErr:   true,
+			wantField: "name",
+		},
+		{
+			name:      "whitespace-only name fails",
+			req:       dto.UpdateProjectRequest{Name: stringPtr("  ")},
+			wantErr:   true,
+			wantField: "name",
+		},
+		{
+			name:    "valid description passes",
+			req:     dto.UpdateProjectRequest{Description: stringPtr("New desc")},
+			wantErr: false,
+		},
+		{
+			name:      "empty description fails",
+			req:       dto.UpdateProjectRequest{Description: stringPtr("")},
+			wantErr:   true,
+			wantField: "description",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.req.Validate()
+			if tt.wantErr {
+				requireValidationField(t, err, tt.wantField)
+			} else if err != nil {
+				t.Errorf("Validate() = %v, want nil", err)
+			}
+		})
+	}
+}
+
 func TestUpdateTodoRequest_Validate(t *testing.T) {
 	t.Parallel()
 
