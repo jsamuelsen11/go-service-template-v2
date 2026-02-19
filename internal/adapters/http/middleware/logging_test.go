@@ -2,6 +2,7 @@ package middleware_test
 
 import (
 	"bytes"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -141,5 +142,62 @@ func TestLogging_IncludesStatusCode(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "status=404") {
 		t.Errorf("log output missing status=404, got: %s", output)
+	}
+}
+
+func TestLogging_HeadersLoggedAtDebugLevel(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := testLogger(&buf) // debug-level logger
+
+	handler := middleware.Logging(logger)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(rec, req)
+
+	output := buf.String()
+	if !strings.Contains(output, "request headers") {
+		t.Error("log output missing 'request headers' debug message")
+	}
+	if strings.Contains(output, "secret-token") {
+		t.Error("log output contains raw token, want it redacted in header log")
+	}
+	if !strings.Contains(output, "[REDACTED]") {
+		t.Error("log output missing [REDACTED] for Authorization header")
+	}
+	if !strings.Contains(output, "Content-Type") {
+		t.Error("log output missing Content-Type non-sensitive header")
+	}
+}
+
+func TestLogging_HeadersNotLoggedAtInfoLevel(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	handler := middleware.Logging(logger)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(rec, req)
+
+	output := buf.String()
+	if strings.Contains(output, "request headers") {
+		t.Error("log output contains 'request headers' at info level, want no header logging")
+	}
+	// Method and path should still be present in the request started log.
+	if !strings.Contains(output, "request started") {
+		t.Error("log output missing 'request started'")
 	}
 }

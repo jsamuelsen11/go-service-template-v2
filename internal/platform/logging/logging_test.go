@@ -200,3 +200,76 @@ func TestWithLogger_OverwritesPrevious(t *testing.T) {
 		t.Error("FromContext returned first logger, want second (overwritten) logger")
 	}
 }
+
+// --- Redaction tests ---
+
+func TestNew_RedactsAuthorizationFieldName(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := logging.New("info", "json", &buf)
+
+	logger.Info("request", slog.String("authorization", "Bearer supersecret-token"))
+
+	out := buf.String()
+	if strings.Contains(out, "supersecret-token") {
+		t.Error("log output contains raw token, want it redacted")
+	}
+	if !strings.Contains(out, "[REDACTED]") {
+		t.Error("log output missing [REDACTED] marker")
+	}
+}
+
+func TestNew_RedactsPasswordFieldName(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := logging.New("info", "json", &buf)
+
+	logger.Info("login", slog.String("password", "hunter2"))
+
+	out := buf.String()
+	if strings.Contains(out, "hunter2") {
+		t.Error("log output contains raw password, want it redacted")
+	}
+	if !strings.Contains(out, "[REDACTED]") {
+		t.Error("log output missing [REDACTED] marker")
+	}
+}
+
+func TestNew_DefenseInDepthBearerRegex(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := logging.New("info", "json", &buf)
+
+	logger.Info("debug trace", slog.String("raw_header", "Bearer eyJhbGciOiJSUzI1NiJ9"))
+
+	out := buf.String()
+	if strings.Contains(out, "eyJhbGciOiJSUzI1NiJ9") {
+		t.Error("log output contains raw Bearer token, want it redacted by regex")
+	}
+	if !strings.Contains(out, "[REDACTED]") {
+		t.Error("log output missing [REDACTED] marker")
+	}
+}
+
+func TestNew_DoesNotRedactNonSensitiveFields(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := logging.New("info", "json", &buf)
+
+	logger.Info("event",
+		slog.String("user_id", "usr-123"),
+		slog.String("path", "/api/projects"),
+	)
+
+	out := buf.String()
+	if !strings.Contains(out, "usr-123") {
+		t.Error("log output missing user_id, non-sensitive field should not be redacted")
+	}
+	if !strings.Contains(out, "/api/projects") {
+		t.Error("log output missing path, non-sensitive field should not be redacted")
+	}
+}
