@@ -34,6 +34,7 @@ type ClientConfig struct {
 	Timeout        time.Duration        `koanf:"timeout"`
 	Retry          RetryConfig          `koanf:"retry"`
 	CircuitBreaker CircuitBreakerConfig `koanf:"circuit_breaker"`
+	RateLimit      RateLimitConfig      `koanf:"rate_limit"`
 }
 
 // RetryConfig holds retry policy settings with exponential backoff.
@@ -49,6 +50,13 @@ type CircuitBreakerConfig struct {
 	MaxFailures   int           `koanf:"max_failures"`
 	Timeout       time.Duration `koanf:"timeout"`
 	HalfOpenLimit int           `koanf:"half_open_limit"`
+}
+
+// RateLimitConfig holds per-client rate limiting settings.
+// When RequestsPerSecond is zero, rate limiting is disabled.
+type RateLimitConfig struct {
+	RequestsPerSecond float64 `koanf:"requests_per_second"`
+	BurstSize         int     `koanf:"burst_size"`
 }
 
 // TelemetryConfig holds OpenTelemetry settings.

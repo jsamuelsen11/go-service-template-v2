@@ -84,6 +84,10 @@ func (cl *ClientConfig) validate() error {
 	if cl.CircuitBreaker.Timeout <= 0 {
 		errs = append(errs, errors.New("client.circuit_breaker.timeout must be positive"))
 	}
+	if cl.RateLimit.RequestsPerSecond > 0 && cl.RateLimit.BurstSize < 1 {
+		errs = append(errs, fmt.Errorf("client.rate_limit.burst_size must be >= 1 when rate limiting is enabled, got %d",
+			cl.RateLimit.BurstSize))
+	}
 
 	return errors.Join(errs...)
 }
