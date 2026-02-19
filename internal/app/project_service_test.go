@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	appctx "github.com/jsamuelsen11/go-service-template-v2/internal/app/context"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
@@ -674,4 +675,159 @@ func TestProjectService_RemoveTodo(t *testing.T) {
 			t.Errorf("RemoveTodo() error = %v, want ErrUnavailable", err)
 		}
 	})
+}
+
+// ctxWithRC returns a context carrying a fresh RequestContext for memoization tests.
+func ctxWithRC() context.Context {
+	ctx := context.Background()
+	rc := appctx.New(ctx)
+	return appctx.WithRequestContext(ctx, rc)
+}
+
+// --- Memoization via RequestContext ---
+
+func TestProjectService_GetProject_MemoizesProject(t *testing.T) {
+	t.Parallel()
+	mockClient := mocks.NewMockTodoClient(t)
+	svc := NewProjectService(mockClient, discardLogger())
+
+	proj := validProject()
+	todos := []todo.Todo{{ID: 10, Title: "A", Description: "Desc", Status: todo.StatusPending, Category: todo.CategoryWork}}
+
+	// GetProject is called only once thanks to memoization.
+	mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil).Once()
+	mockClient.EXPECT().GetProjectTodos(mock.Anything, int64(1), todo.Filter{}).Return(todos, nil)
+
+	ctx := ctxWithRC()
+	got, err := svc.GetProject(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetProject() error = %v, want nil", err)
+	}
+	if got.ID != 1 {
+		t.Errorf("GetProject().ID = %d, want 1", got.ID)
+	}
+}
+
+func TestProjectService_AddTodo_MemoizesProjectVerification(t *testing.T) {
+	t.Parallel()
+	mockClient := mocks.NewMockTodoClient(t)
+	svc := NewProjectService(mockClient, discardLogger())
+
+	proj := validProject()
+	proj.ID = 5
+
+	// GetProject is called only once even though AddTodo is called twice.
+	mockClient.EXPECT().GetProject(mock.Anything, int64(5)).Return(&proj, nil).Once()
+
+	td1 := validTodo()
+	created1 := validTodo()
+	created1.ID = 42
+	created1.ProjectID = int64Ptr(5)
+	mockClient.EXPECT().CreateTodo(mock.Anything, &td1).Return(&created1, nil).Once()
+
+	td2 := validTodo()
+	td2.Title = "Second todo"
+	td2.Description = "Second desc"
+	created2 := validTodo()
+	created2.ID = 43
+	created2.ProjectID = int64Ptr(5)
+	mockClient.EXPECT().CreateTodo(mock.Anything, &td2).Return(&created2, nil).Once()
+
+	ctx := ctxWithRC()
+
+	got1, err := svc.AddTodo(ctx, 5, &td1)
+	if err != nil {
+		t.Fatalf("AddTodo() first call error = %v, want nil", err)
+	}
+	if got1.ID != 42 {
+		t.Errorf("AddTodo() first ID = %d, want 42", got1.ID)
+	}
+
+	got2, err := svc.AddTodo(ctx, 5, &td2)
+	if err != nil {
+		t.Fatalf("AddTodo() second call error = %v, want nil", err)
+	}
+	if got2.ID != 43 {
+		t.Errorf("AddTodo() second ID = %d, want 43", got2.ID)
+	}
+}
+
+func TestProjectService_UpdateTodo_MemoizesProjectVerification(t *testing.T) {
+	t.Parallel()
+	mockClient := mocks.NewMockTodoClient(t)
+	svc := NewProjectService(mockClient, discardLogger())
+
+	proj := validProject()
+	// GetProject is called only once for two UpdateTodo calls.
+	mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil).Once()
+
+	existing1 := validTodo()
+	existing1.ID = 10
+	existing1.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing1, nil).Once()
+
+	td1 := validTodo()
+	updated1 := validTodo()
+	updated1.ID = 10
+	updated1.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().UpdateTodo(mock.Anything, int64(10), &td1).Return(&updated1, nil).Once()
+
+	existing2 := validTodo()
+	existing2.ID = 11
+	existing2.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().GetTodo(mock.Anything, int64(11)).Return(&existing2, nil).Once()
+
+	td2 := validTodo()
+	td2.Title = "Other todo"
+	td2.Description = "Other desc"
+	updated2 := validTodo()
+	updated2.ID = 11
+	updated2.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().UpdateTodo(mock.Anything, int64(11), &td2).Return(&updated2, nil).Once()
+
+	ctx := ctxWithRC()
+
+	_, err := svc.UpdateTodo(ctx, 1, 10, &td1)
+	if err != nil {
+		t.Fatalf("UpdateTodo() first call error = %v, want nil", err)
+	}
+
+	_, err = svc.UpdateTodo(ctx, 1, 11, &td2)
+	if err != nil {
+		t.Fatalf("UpdateTodo() second call error = %v, want nil", err)
+	}
+}
+
+func TestProjectService_RemoveTodo_MemoizesProjectVerification(t *testing.T) {
+	t.Parallel()
+	mockClient := mocks.NewMockTodoClient(t)
+	svc := NewProjectService(mockClient, discardLogger())
+
+	proj := validProject()
+	// GetProject is called only once for two RemoveTodo calls.
+	mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil).Once()
+
+	existing1 := validTodo()
+	existing1.ID = 10
+	existing1.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().GetTodo(mock.Anything, int64(10)).Return(&existing1, nil).Once()
+	mockClient.EXPECT().DeleteTodo(mock.Anything, int64(10)).Return(nil).Once()
+
+	existing2 := validTodo()
+	existing2.ID = 11
+	existing2.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().GetTodo(mock.Anything, int64(11)).Return(&existing2, nil).Once()
+	mockClient.EXPECT().DeleteTodo(mock.Anything, int64(11)).Return(nil).Once()
+
+	ctx := ctxWithRC()
+
+	err := svc.RemoveTodo(ctx, 1, 10)
+	if err != nil {
+		t.Fatalf("RemoveTodo() first call error = %v, want nil", err)
+	}
+
+	err = svc.RemoveTodo(ctx, 1, 11)
+	if err != nil {
+		t.Fatalf("RemoveTodo() second call error = %v, want nil", err)
+	}
 }
