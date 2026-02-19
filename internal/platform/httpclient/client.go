@@ -182,7 +182,8 @@ func (c *Client) Name() string {
 // This reports downstream status, not service readiness. The service itself
 // is always ready to handle requests even when a downstream is failing.
 func (c *Client) HealthCheck(_ context.Context) error {
-	switch c.breaker.State() {
+	state := c.breaker.State()
+	switch state {
 	case gobreaker.StateClosed:
 		return nil
 	case gobreaker.StateHalfOpen:
@@ -190,7 +191,7 @@ func (c *Client) HealthCheck(_ context.Context) error {
 	case gobreaker.StateOpen:
 		return fmt.Errorf("%s: failing (circuit breaker open)", c.serviceName)
 	default:
-		return fmt.Errorf("%s: unknown circuit breaker state %q", c.serviceName, c.breaker.State())
+		return fmt.Errorf("%s: unknown circuit breaker state %v", c.serviceName, state)
 	}
 }
 

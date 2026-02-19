@@ -392,6 +392,9 @@ func TestValidationError_ErrorsAs(t *testing.T) {
 	if verr.Fields["title"] != domain.MsgRequired {
 		t.Errorf("Fields[\"title\"] = %q, want %q", verr.Fields["title"], domain.MsgRequired)
 	}
+	if verr.Fields["description"] != domain.MsgRequired {
+		t.Errorf("Fields[\"description\"] = %q, want %q", verr.Fields["description"], domain.MsgRequired)
+	}
 }
 
 func TestValidationError_Error(t *testing.T) {
