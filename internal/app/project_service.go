@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	appctx "github.com/jsamuelsen11/go-service-template-v2/internal/app/context"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
@@ -37,6 +38,23 @@ func NewProjectService(client ports.TodoClient, logger *slog.Logger) *ProjectSer
 	}
 }
 
+// projectCacheKey returns the appctx cache key for a project by ID.
+func projectCacheKey(id int64) string {
+	return fmt.Sprintf("project:%d", id)
+}
+
+// fetchProject returns a project by ID, using the RequestContext's memoized
+// cache when available. If no RequestContext is in the context (e.g., in unit
+// tests without middleware), it falls back to a direct client call.
+func (s *ProjectService) fetchProject(ctx context.Context, id int64) (*project.Project, error) {
+	if rc := appctx.FromContext(ctx); rc != nil {
+		return appctx.GetOrFetch(rc, projectCacheKey(id), func(ctx context.Context) (*project.Project, error) {
+			return s.todoClient.GetProject(ctx, id)
+		})
+	}
+	return s.todoClient.GetProject(ctx, id)
+}
+
 // ListProjects returns all projects without populating their todos.
 func (s *ProjectService) ListProjects(ctx context.Context) ([]project.Project, error) {
 	s.logger.InfoContext(ctx, "listing projects")
@@ -57,7 +75,7 @@ func (s *ProjectService) ListProjects(ctx context.Context) ([]project.Project, e
 func (s *ProjectService) GetProject(ctx context.Context, id int64) (*project.Project, error) {
 	s.logger.InfoContext(ctx, "fetching project", slog.Int64("id", id))
 
-	proj, err := s.todoClient.GetProject(ctx, id)
+	proj, err := s.fetchProject(ctx, id)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to fetch project",
 			slog.String("operation", "GetProject"),
@@ -159,7 +177,7 @@ func (s *ProjectService) AddTodo(ctx context.Context, projectID int64, td *todo.
 		return nil, err
 	}
 
-	if _, err := s.todoClient.GetProject(ctx, projectID); err != nil {
+	if _, err := s.fetchProject(ctx, projectID); err != nil {
 		s.logger.ErrorContext(ctx, "failed to verify project",
 			slog.String("operation", "AddTodo"),
 			slog.Int64("project_id", projectID),
@@ -198,7 +216,7 @@ func (s *ProjectService) UpdateTodo(ctx context.Context, projectID, todoID int64
 		return nil, err
 	}
 
-	if _, err := s.todoClient.GetProject(ctx, projectID); err != nil {
+	if _, err := s.fetchProject(ctx, projectID); err != nil {
 		s.logger.ErrorContext(ctx, "failed to verify project",
 			slog.String("operation", "UpdateTodo"),
 			slog.Int64("project_id", projectID),
@@ -246,7 +264,7 @@ func (s *ProjectService) RemoveTodo(ctx context.Context, projectID, todoID int64
 		slog.Int64("todo_id", todoID),
 	)
 
-	if _, err := s.todoClient.GetProject(ctx, projectID); err != nil {
+	if _, err := s.fetchProject(ctx, projectID); err != nil {
 		s.logger.ErrorContext(ctx, "failed to verify project",
 			slog.String("operation", "RemoveTodo"),
 			slog.Int64("project_id", projectID),

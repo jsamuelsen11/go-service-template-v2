@@ -141,6 +141,24 @@ func (rc *RequestContext) Stage(key string, entity any, action domain.Action) er
 	return nil
 }
 
+// contextKey is the unexported key type for storing RequestContext in context.
+type contextKey struct{}
+
+// WithRequestContext returns a new context with the given RequestContext
+// stored in it. This is used by the appctx middleware to inject a
+// RequestContext per HTTP request.
+func WithRequestContext(ctx context.Context, rc *RequestContext) context.Context {
+	return context.WithValue(ctx, contextKey{}, rc)
+}
+
+// FromContext extracts a *RequestContext from the context.
+// Returns nil if no RequestContext is stored, allowing callers to fall back
+// to direct calls when the middleware is not active (e.g., in unit tests).
+func FromContext(ctx context.Context) *RequestContext {
+	rc, _ := ctx.Value(contextKey{}).(*RequestContext)
+	return rc
+}
+
 // Execute runs an action immediately, independent of the commit queue.
 // The action is NOT added to the staged items and will NOT participate
 // in Commit's execution or rollback sequence.

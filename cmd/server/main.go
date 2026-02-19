@@ -233,6 +233,7 @@ func registerDependencies(injector *do.RootScope, cfg *config.Config, logger *sl
 			middleware.Recovery(logger),
 			middleware.RequestID(),
 			middleware.CorrelationID(),
+			middleware.AppContext(),
 			middleware.OpenTelemetry(metrics),
 			middleware.Logging(logger),
 			middleware.Timeout(cfg.Server.WriteTimeout),
