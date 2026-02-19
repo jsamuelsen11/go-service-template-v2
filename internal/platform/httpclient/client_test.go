@@ -559,3 +559,123 @@ func TestDo_NilMetrics(t *testing.T) {
 		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 }
+
+func TestDo_RateLimiterThrottles(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := testConfig(srv.URL)
+	cfg.RateLimit = config.RateLimitConfig{
+		RequestsPerSecond: 1, // 1 req/s
+		BurstSize:         1, // burst of 1
+	}
+
+	client := httpclient.New(cfg, "test-svc", nil, testLogger())
+
+	// First request consumes the burst token — should be fast.
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/rl1", http.NoBody)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	resp, err := client.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("first Do() error = %v", err)
+	}
+	_ = resp.Body.Close()
+
+	// Second request must wait for a token (~1s at 1 req/s).
+	start := time.Now()
+	req, err = http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/rl2", http.NoBody)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	resp, err = client.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("second Do() error = %v", err)
+	}
+	_ = resp.Body.Close()
+
+	elapsed := time.Since(start)
+	if elapsed < 500*time.Millisecond {
+		t.Errorf("second request took %v, want >= 500ms (rate limited to 1 req/s)", elapsed)
+	}
+}
+
+func TestDo_RateLimiterContextCancellation(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := testConfig(srv.URL)
+	cfg.RateLimit = config.RateLimitConfig{
+		RequestsPerSecond: 1,
+		BurstSize:         1,
+	}
+
+	client := httpclient.New(cfg, "test-svc", nil, testLogger())
+
+	// Exhaust the burst token.
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/rl-exhaust", http.NoBody)
+	resp, err := client.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("burst request error = %v", err)
+	}
+	_ = resp.Body.Close()
+
+	// Now cancel before the limiter can issue a token.
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	req, _ = http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/rl-cancel", http.NoBody)
+	resp, err = client.Do(ctx, req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+
+	if err == nil {
+		t.Fatal("Do() error = nil, want context deadline exceeded")
+	}
+}
+
+func TestDo_NoRateLimiterWhenUnconfigured(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	// Zero-value RateLimitConfig means no rate limiting.
+	cfg := testConfig(srv.URL)
+
+	client := httpclient.New(cfg, "test-svc", nil, testLogger())
+
+	// Fire several requests rapidly — none should be throttled.
+	start := time.Now()
+	for range 5 {
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/no-rl", http.NoBody)
+		if err != nil {
+			t.Fatalf("creating request: %v", err)
+		}
+
+		resp, err := client.Do(context.Background(), req)
+		if err != nil {
+			t.Fatalf("Do() error = %v", err)
+		}
+		_ = resp.Body.Close()
+	}
+
+	elapsed := time.Since(start)
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("5 requests took %v, want < 500ms (no rate limiting)", elapsed)
+	}
+}
