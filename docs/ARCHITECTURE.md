@@ -936,14 +936,15 @@ deadlines, and cancellation signals across API boundaries.
 
 **What Context Carries:**
 
-| Data                    | Purpose                                                       |
-| ----------------------- | ------------------------------------------------------------- |
-| **Request ID**          | Unique identifier for this specific request                   |
-| **Correlation ID**      | Identifier that tracks a business transaction across services |
-| **Deadline/Timeout**    | When the request should be cancelled                          |
-| **Cancellation Signal** | Notifies when the client disconnects or request is cancelled  |
-| **Logger**              | Request-enriched structured logger                            |
-| **Trace Span**          | OpenTelemetry span for distributed tracing                    |
+| Data                    | Purpose                                                           |
+| ----------------------- | ----------------------------------------------------------------- |
+| **Request ID**          | Unique identifier for this specific request                       |
+| **Correlation ID**      | Identifier that tracks a business transaction across services     |
+| **RequestContext**      | Request-scoped memoization cache and staged action queue (appctx) |
+| **Deadline/Timeout**    | When the request should be cancelled                              |
+| **Cancellation Signal** | Notifies when the client disconnects or request is cancelled      |
+| **Logger**              | Request-enriched structured logger                                |
+| **Trace Span**          | OpenTelemetry span for distributed tracing                        |
 
 **Extracting Values from Context:**
 
@@ -953,6 +954,9 @@ requestID := middleware.RequestIDFromContext(ctx)
 
 // Extract correlation ID
 correlationID := middleware.CorrelationIDFromContext(ctx)
+
+// Extract RequestContext for memoized fetching (nil without middleware)
+rc := appctx.FromContext(ctx)
 
 // Get context-aware logger (includes request ID, correlation ID)
 logger := logging.FromContext(ctx)
@@ -987,14 +991,36 @@ Pattern provides request-scoped data fetching, staged writes, and atomic commit 
 
 See [ADR-0001](./adr/0001-hexagonal-architecture.md#request-context-pattern-for-orchestration) for the architectural decision.
 
-| Component        | Purpose                                                |
-| ---------------- | ------------------------------------------------------ |
-| `RequestContext` | Main struct with in-memory cache and action collection |
-| `GetOrFetch()`   | Stage 1: Lazy memoization for expensive fetches        |
-| `AddAction()`    | Stage 2: Stage write operations for later execution    |
-| `Commit()`       | Stage 3: Execute all actions with automatic rollback   |
-| `DataProvider`   | Interface for type-safe data fetching (see below)      |
-| `Action`         | Interface for staged write operations (see below)      |
+| Component              | Purpose                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| `RequestContext`       | Main struct with in-memory cache and action collection        |
+| `GetOrFetch()`         | Stage 1: Lazy memoization for expensive fetches               |
+| `AddAction()`          | Stage 2: Stage write operations for later execution           |
+| `Commit()`             | Stage 3: Execute all actions with automatic rollback          |
+| `DataProvider`         | Interface for type-safe data fetching (see below)             |
+| `Action`               | Interface for staged write operations (see below)             |
+| `FromContext()`        | Extract RequestContext from `context.Context` (nil if absent) |
+| `WithRequestContext()` | Store RequestContext in `context.Context`                     |
+
+#### Middleware Injection
+
+The `AppContext` middleware (see [Middleware Pipeline](#middleware-pipeline)) creates a
+`RequestContext` per HTTP request and stores it in Go's `context.Context`. Application
+services retrieve it via `appctx.FromContext(ctx)`:
+
+```go
+func (s *ProjectService) fetchProject(ctx context.Context, id int64) (*project.Project, error) {
+    if rc := appctx.FromContext(ctx); rc != nil {
+        return appctx.GetOrFetch(rc, projectCacheKey(id), func(ctx context.Context) (*project.Project, error) {
+            return s.todoClient.GetProject(ctx, id)
+        })
+    }
+    return s.todoClient.GetProject(ctx, id) // fallback without middleware
+}
+```
+
+The nil-check fallback ensures unit tests work without the middleware -- simply pass
+`context.Background()` and the service falls back to direct client calls.
 
 ```mermaid
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '14px' }}}%%
@@ -1214,9 +1240,10 @@ flowchart LR
         M1["Recovery"]
         M2["RequestID"]
         M3["CorrelationID"]
-        M4["OpenTelemetry"]
-        M5["Logging"]
-        M6["Timeout"]
+        M4["AppContext"]
+        M5["OpenTelemetry"]
+        M6["Logging"]
+        M7["Timeout"]
         H["Handler"]
     end
 
@@ -1224,20 +1251,20 @@ flowchart LR
         direction RL
         RES(["HTTP Response"])
         R1["Recovery"]
-        R4["OpenTelemetry"]
-        R5["Logging"]
+        R5["OpenTelemetry"]
+        R6["Logging"]
     end
 
-    REQ --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> H
-    H --> R5 --> R4 --> R1 --> RES
+    REQ --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7 --> H
+    H --> R6 --> R5 --> R1 --> RES
 
     classDef middleware fill:#10b981,stroke:#059669,color:#fff
     classDef handler fill:#0ea5e9,stroke:#0284c7,color:#fff
     classDef io fill:#64748b,stroke:#475569,color:#fff
     classDef responseMiddleware fill:#22c55e,stroke:#16a34a,color:#fff
 
-    class M1,M2,M3,M4,M5,M6 middleware
-    class R1,R4,R5 responseMiddleware
+    class M1,M2,M3,M4,M5,M6,M7 middleware
+    class R1,R5,R6 responseMiddleware
     class H handler
     class REQ,RES io
 ```
@@ -1256,19 +1283,22 @@ additional processing on the response path.
 
 **Middleware Responsibilities:**
 
-| Order | Middleware        | Request Phase                    | Response Phase                       |
-| ----- | ----------------- | -------------------------------- | ------------------------------------ |
-| 1     | **Recovery**      | Sets up panic handler            | Catches panics, returns 500          |
-| 2     | **RequestID**     | Generate/extract ID, set header  | -                                    |
-| 3     | **CorrelationID** | Extract/propagate ID, set header | -                                    |
-| 4     | **OpenTelemetry** | Start trace span                 | End span, record status              |
-| 5     | **Logging**       | Log request start                | Log request completion with duration |
-| 6     | **Timeout**       | Set context deadline             | Cancel if deadline exceeded          |
+| Order | Middleware        | Request Phase                           | Response Phase                       |
+| ----- | ----------------- | --------------------------------------- | ------------------------------------ |
+| 1     | **Recovery**      | Sets up panic handler                   | Catches panics, returns 500          |
+| 2     | **RequestID**     | Generate/extract ID, set header         | -                                    |
+| 3     | **CorrelationID** | Extract/propagate ID, set header        | -                                    |
+| 4     | **AppContext**    | Create RequestContext, store in context | -                                    |
+| 5     | **OpenTelemetry** | Start trace span                        | End span, record status              |
+| 6     | **Logging**       | Log request start                       | Log request completion with duration |
+| 7     | **Timeout**       | Set context deadline                    | Cancel if deadline exceeded          |
 
 **Middleware Order Rationale:**
 
 - Recovery must be first to catch panics from any subsequent middleware
 - IDs must be generated before logging/tracing uses them
+- AppContext runs after IDs are set so the embedded context carries request metadata,
+  and before OpenTelemetry so the RequestContext is available during the traced lifecycle
 - Timeout is last before handler to accurately measure business logic time
 
 ### Outbound Middleware (HTTP Client)

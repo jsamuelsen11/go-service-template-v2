@@ -803,6 +803,25 @@ flowchart TB
 | Stadium (`([...])`)                                             | External I/O boundary            |
 | Dashed border                                                   | Stage boundary                   |
 
+#### Middleware Injection
+
+The `RequestContext` is created per HTTP request by the `AppContext` middleware and stored
+in Go's `context.Context`. Application services retrieve it via `appctx.FromContext(ctx)`,
+with a nil-check fallback for unit tests that don't use middleware:
+
+```go
+if rc := appctx.FromContext(ctx); rc != nil {
+    // Use memoized fetch
+    proj, err := appctx.GetOrFetch(rc, key, fetchFn)
+} else {
+    // Direct call (no middleware, e.g., unit tests)
+    proj, err := s.todoClient.GetProject(ctx, id)
+}
+```
+
+This pattern follows the same convention as `logging.FromContext(ctx)` for context-stored
+infrastructure, keeping the application service testable without the middleware stack.
+
 See [ARCHITECTURE.md > Request Context Pattern](../ARCHITECTURE.md#request-context-pattern) for
 component reference, code examples, and implementation guidance.
 
