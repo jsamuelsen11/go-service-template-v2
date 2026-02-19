@@ -139,6 +139,7 @@ flowchart TB
 
     subgraph Infra["Downstream Client Infrastructure"]
         CB["Circuit Breaker"]
+        RL["Rate Limiter"]
         Retry["Retry"]
         InfraOTEL["OpenTelemetry"]
     end
@@ -152,7 +153,7 @@ flowchart TB
     DomainServices --> DomainErr
     AppServices --> ClientPorts
     ACLImpl -.->|implements| ClientPorts
-    ACLImpl -->|requests| CB --> Retry --> InfraOTEL --> ExtAPI
+    ACLImpl -->|requests| CB --> RL --> Retry --> InfraOTEL --> ExtAPI
     ExtAPI -->|returns| DTO
     DTO -->|translated by| ACLImpl
     ACLImpl -->|returns| Entities
@@ -169,7 +170,7 @@ flowchart TB
     class SvcPorts,ClientPorts ports
     class AppServices app
     class Handlers,MW,ACLImpl,DTO adapter
-    class CB,Retry,InfraOTEL infra
+    class CB,RL,Retry,InfraOTEL infra
     class HTTP,ExtAPI external
 ```
 
@@ -1310,6 +1311,7 @@ The instrumented HTTP client applies middleware-like processing to outbound requ
 flowchart LR
     SVC["Service Call"]
     CB["Circuit Breaker"]
+    RL["Rate Limiter"]
     HDR["Header Injection"]
     OTEL["OpenTelemetry"]
     RETRY["Retry Logic"]
@@ -1317,16 +1319,16 @@ flowchart LR
     API["External API"]
 
     SVC --> CB
-    CB -->|"allowed"| HDR
+    CB -->|"allowed"| RL
     CB -->|"blocked"| ERR(["Error"])
-    HDR --> OTEL --> RETRY --> HTTP --> API
+    RL --> HDR --> OTEL --> RETRY --> HTTP --> API
 
     classDef client fill:#ec4899,stroke:#db2777,color:#fff
     classDef external fill:#64748b,stroke:#475569,color:#fff
     classDef error fill:#ef4444,stroke:#dc2626,color:#fff
     classDef app fill:#0ea5e9,stroke:#0284c7,color:#fff
 
-    class CB,HDR,OTEL,RETRY,HTTP client
+    class CB,RL,HDR,OTEL,RETRY,HTTP client
     class API external
     class ERR error
     class SVC app
@@ -1343,13 +1345,14 @@ flowchart LR
 
 **Outbound Processing Steps:**
 
-| Order | Component            | Purpose                                      |
-| ----- | -------------------- | -------------------------------------------- |
-| 1     | **Circuit Breaker**  | Block requests if downstream is unhealthy    |
-| 2     | **Header Injection** | Add Request ID, Correlation ID, Auth headers |
-| 3     | **OpenTelemetry**    | Create child span, propagate trace context   |
-| 4     | **Retry Logic**      | Retry on transient failures with backoff     |
-| 5     | **HTTP Request**     | Execute the actual HTTP call                 |
+| Order | Component            | Purpose                                                           |
+| ----- | -------------------- | ----------------------------------------------------------------- |
+| 1     | **Circuit Breaker**  | Block requests if downstream is unhealthy                         |
+| 2     | **Rate Limiter**     | Throttle requests to prevent overwhelming downstream (per-client) |
+| 3     | **Header Injection** | Add Request ID, Correlation ID, Auth headers                      |
+| 4     | **OpenTelemetry**    | Create child span, propagate trace context                        |
+| 5     | **Retry Logic**      | Retry on transient failures with backoff                          |
+| 6     | **HTTP Request**     | Execute the actual HTTP call                                      |
 
 ---
 
@@ -1375,6 +1378,7 @@ flowchart TB
 
     subgraph Client["Instrumented HTTP Client"]
         CB{"Circuit Breaker"}
+        RL["Rate Limiter"]
         RETRY["Retry Logic"]
         OTEL["OpenTelemetry"]
     end
@@ -1397,15 +1401,16 @@ flowchart TB
     PORT -.->|implemented by| ADAPTER
     ADAPTER --> CB
 
-    CB -->|"Closed (normal)"| RETRY
+    CB -->|"Closed (normal)"| RL
     CB -->|"Open (failing)"| BLOCK(["Block Request"])
     CB -->|"Half-Open (probing)"| PROBE["Allow Limited Requests"]
 
+    RL --> RETRY
     RETRY -->|success| OTEL
     RETRY -->|"failure + retryable"| RETRY
     RETRY -->|"max retries exceeded"| FAIL(["Return Error"])
 
-    PROBE --> OTEL
+    PROBE --> RL
     OTEL --> API
 
     API -->|"200 OK"| EXTDTO
@@ -1429,7 +1434,7 @@ flowchart TB
     class SVC app
     class PORT ports
     class ADAPTER,TRANS adapter
-    class CB,RETRY,OTEL,PROBE client
+    class CB,RL,RETRY,OTEL,PROBE client
     class API external
     class BLOCK,FAIL,EXTERR,DOMAINERR error
     class DOMAINDTO,EXTDTO success
