@@ -8,9 +8,6 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
 
-// msgRequired is the validation message for mandatory fields.
-const msgRequired = "is required"
-
 // Todo represents a task item with progress tracking.
 type Todo struct {
 	ID              int64
@@ -31,10 +28,10 @@ func (t *Todo) Validate() error {
 	fields := make(map[string]string)
 
 	if strings.TrimSpace(t.Title) == "" {
-		fields["title"] = msgRequired
+		fields["title"] = domain.MsgRequired
 	}
 	if strings.TrimSpace(t.Description) == "" {
-		fields["description"] = msgRequired
+		fields["description"] = domain.MsgRequired
 	}
 	if !t.Status.IsValid() {
 		fields["status"] = fmt.Sprintf("invalid: %q", t.Status)

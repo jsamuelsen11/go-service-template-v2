@@ -16,7 +16,12 @@ import (
 
 	"github.com/jsamuelsen11/go-service-template-v2/internal/platform/config"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/platform/httpclient"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 )
+
+// Compile-time interface check. Platform must not import ports in production
+// code, so the check lives in the test file.
+var _ ports.HealthChecker = (*httpclient.Client)(nil)
 
 func testConfig(baseURL string) *config.ClientConfig {
 	return &config.ClientConfig{

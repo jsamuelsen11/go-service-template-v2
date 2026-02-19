@@ -8,9 +8,6 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 )
 
-// msgRequired is the validation message for mandatory fields.
-const msgRequired = "is required"
-
 // Project represents a collection of related todos.
 // It maps to the downstream "Group" concept; the ACL translates between the two.
 type Project struct {
@@ -29,10 +26,10 @@ func (p *Project) Validate() error {
 	fields := make(map[string]string)
 
 	if strings.TrimSpace(p.Name) == "" {
-		fields["name"] = msgRequired
+		fields["name"] = domain.MsgRequired
 	}
 	if strings.TrimSpace(p.Description) == "" {
-		fields["description"] = msgRequired
+		fields["description"] = domain.MsgRequired
 	}
 
 	if len(fields) > 0 {

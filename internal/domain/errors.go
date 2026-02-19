@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+// MsgRequired is the validation message for mandatory fields.
+const MsgRequired = "is required"
+
 // Sentinel errors for errors.Is() checking.
 var (
 	ErrNotFound    = errors.New("not found")

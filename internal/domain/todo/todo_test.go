@@ -358,7 +358,7 @@ func TestTodo_Validate_MultipleErrors(t *testing.T) {
 func TestValidationError_ErrorsIs(t *testing.T) {
 	t.Parallel()
 
-	verr := &domain.ValidationError{Fields: map[string]string{"title": msgRequired}}
+	verr := &domain.ValidationError{Fields: map[string]string{"title": domain.MsgRequired}}
 
 	if !errors.Is(verr, domain.ErrValidation) {
 		t.Error("errors.Is(ValidationError, ErrValidation) = false, want true")
@@ -375,8 +375,8 @@ func TestValidationError_ErrorsAs(t *testing.T) {
 	t.Parallel()
 
 	original := &domain.ValidationError{Fields: map[string]string{
-		"title":       msgRequired,
-		"description": msgRequired,
+		"title":       domain.MsgRequired,
+		"description": domain.MsgRequired,
 	}}
 
 	wrapped := fmt.Errorf("operation failed: %w", original)
@@ -389,15 +389,18 @@ func TestValidationError_ErrorsAs(t *testing.T) {
 	if len(verr.Fields) != 2 {
 		t.Errorf("ValidationError.Fields has %d entries, want 2", len(verr.Fields))
 	}
-	if verr.Fields["title"] != msgRequired {
-		t.Errorf("Fields[\"title\"] = %q, want %q", verr.Fields["title"], msgRequired)
+	if verr.Fields["title"] != domain.MsgRequired {
+		t.Errorf("Fields[\"title\"] = %q, want %q", verr.Fields["title"], domain.MsgRequired)
+	}
+	if verr.Fields["description"] != domain.MsgRequired {
+		t.Errorf("Fields[\"description\"] = %q, want %q", verr.Fields["description"], domain.MsgRequired)
 	}
 }
 
 func TestValidationError_Error(t *testing.T) {
 	t.Parallel()
 
-	verr := &domain.ValidationError{Fields: map[string]string{"title": msgRequired}}
+	verr := &domain.ValidationError{Fields: map[string]string{"title": domain.MsgRequired}}
 	got := verr.Error()
 
 	if got == "" {
