@@ -1595,7 +1595,7 @@ Now `slog.Any("creds", creds)` automatically redacts -- no discipline required a
 Redact sensitive headers before they reach the structured logger:
 
 ```go
-// internal/platform/middleware/redact.go
+// internal/adapters/http/middleware/redact.go
 var sensitiveHeaders = map[string]bool{
     "authorization": true,
     "x-api-key":     true,
@@ -1603,7 +1603,7 @@ var sensitiveHeaders = map[string]bool{
 }
 
 func RedactHeaders(headers http.Header) []slog.Attr {
-    var attrs []slog.Attr
+    attrs := make([]slog.Attr, 0, len(headers))
     for key, vals := range headers {
         if sensitiveHeaders[strings.ToLower(key)] {
             attrs = append(attrs, slog.String(key, "[REDACTED]"))
@@ -1615,29 +1615,39 @@ func RedactHeaders(headers http.Header) []slog.Attr {
 }
 ```
 
-**Pattern: Custom `slog.Handler` Wrapper**
+The logging middleware calls `RedactHeaders` at debug level to log sanitized request headers
+without exposing credentials.
 
-For defense-in-depth, wrap the `slog.Handler` to catch any sensitive patterns that slip through:
+**Pattern: Defense-in-Depth with `masq`**
+
+For defense-in-depth, `logging.New()` wires a [masq](https://github.com/m-mizutani/masq)-powered
+`ReplaceAttr` function into every logger. This catches sensitive values that escape call-site
+redaction -- no opt-in required at log call sites:
 
 ```go
 // internal/platform/logging/redact_handler.go
-type RedactHandler struct {
-    inner    slog.Handler
-    patterns []*regexp.Regexp
-}
-
-func (h *RedactHandler) Handle(ctx context.Context, r slog.Record) error {
-    r.Attrs(func(a slog.Attr) bool {
-        for _, p := range h.patterns {
-            if p.MatchString(a.Value.String()) {
-                a.Value = slog.StringValue("[REDACTED]")
-            }
-        }
-        return true
-    })
-    return h.inner.Handle(ctx, r)
+//
+// masq is configured with field name matching and regex patterns:
+//   - Fields named: authorization, x-api-key, cookie, password, secret, token
+//   - Fields prefixed with: secret_, api_key
+//   - Values matching Bearer token, JWT, and API key patterns
+func newRedactAttr() func([]string, slog.Attr) slog.Attr {
+    return masq.New(
+        masq.WithFieldName("authorization"),
+        masq.WithFieldName("password"),
+        masq.WithRegex(bearerPattern),
+        masq.WithRegex(jwtPattern),
+        // ... additional patterns
+    )
 }
 ```
+
+This is wired into `logging.New()` via `slog.HandlerOptions.ReplaceAttr`, so every logger
+created by `logging.New()` has redaction active automatically.
+
+> **TODO:** Implement `slog.LogValuer` on domain types that hold sensitive fields
+> (e.g., `APICredentials`). No domain types currently contain sensitive fields, so this
+> is deferred until needed. See the `slog.LogValuer` example above for the pattern.
 
 **Testing Redaction:**
 

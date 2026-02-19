@@ -47,8 +47,9 @@ func New(level, format string, w io.Writer) *slog.Logger {
 	lvl := parseLevel(level)
 
 	opts := &slog.HandlerOptions{
-		Level:     lvl,
-		AddSource: lvl == slog.LevelDebug,
+		Level:       lvl,
+		AddSource:   lvl == slog.LevelDebug,
+		ReplaceAttr: newRedactAttr(),
 	}
 
 	var handler slog.Handler

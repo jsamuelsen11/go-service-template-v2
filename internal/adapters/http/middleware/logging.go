@@ -32,6 +32,10 @@ func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 				slog.String("path", r.URL.Path),
 			)
 
+			if child.Enabled(ctx, slog.LevelDebug) {
+				child.DebugContext(ctx, "request headers", attrsToArgs(RedactHeaders(r.Header))...)
+			}
+
 			rw := newResponseWriter(w)
 			next.ServeHTTP(rw, r.WithContext(ctx))
 
