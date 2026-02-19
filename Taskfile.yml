@@ -4,8 +4,19 @@ vars:
   COVERAGE_DIR: .coverage
 
 tasks:
+  run:
+    desc: "Run the server (usage: task run PROFILE=local)"
+    requires:
+      vars: [PROFILE]
+    env:
+      APP_PROFILE: "{{.PROFILE}}"
+    cmds:
+      - go run ./cmd/server/
+
   dev:
     desc: Start development server with hot reload
+    env:
+      APP_PROFILE: local
     cmds:
       - go tool air
 
@@ -20,9 +31,9 @@ tasks:
       - go tool golangci-lint run ./...
 
   build:
-    desc: Build the project
+    desc: Build the server binary
     cmds:
-      - go build ./...
+      - go build -o bin/server ./cmd/server/
 
   mocks:
     desc: Generate mocks with mockery
