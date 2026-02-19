@@ -4,7 +4,7 @@
 //
 // The client applies middleware-like processing in this order:
 //
-//	Circuit Breaker → Header Injection → OTEL Span → Retry → HTTP
+//	Circuit Breaker → Rate Limiter → Header Injection → OTEL Span → Retry → HTTP
 //
 // Construction:
 //
@@ -37,6 +37,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/time/rate"
 
 	"github.com/jsamuelsen11/go-service-template-v2/internal/platform/config"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/platform/telemetry"
@@ -70,13 +71,14 @@ type retryConfig struct {
 	multiplier      float64
 }
 
-// Client is an instrumented HTTP client with circuit breaker, retry,
-// header injection, and OpenTelemetry tracing for outbound requests.
+// Client is an instrumented HTTP client with circuit breaker, rate limiting,
+// retry, header injection, and OpenTelemetry tracing for outbound requests.
 type Client struct {
 	httpClient  *http.Client
 	baseURL     string
 	serviceName string
 	breaker     *gobreaker.CircuitBreaker[struct{}]
+	limiter     *rate.Limiter // nil when rate limiting is disabled
 	retryCfg    retryConfig
 	metrics     *telemetry.Metrics
 	logger      *slog.Logger
@@ -104,11 +106,17 @@ func New(cfg *config.ClientConfig, serviceName string, metrics *telemetry.Metric
 		},
 	})
 
+	var limiter *rate.Limiter
+	if cfg.RateLimit.RequestsPerSecond > 0 {
+		limiter = rate.NewLimiter(rate.Limit(cfg.RateLimit.RequestsPerSecond), cfg.RateLimit.BurstSize)
+	}
+
 	return &Client{
 		httpClient:  &http.Client{Timeout: cfg.Timeout},
 		baseURL:     cfg.BaseURL,
 		serviceName: serviceName,
 		breaker:     cb,
+		limiter:     limiter,
 		retryCfg: retryConfig{
 			maxAttempts:     cfg.Retry.MaxAttempts,
 			initialInterval: cfg.Retry.InitialInterval,
@@ -121,7 +129,7 @@ func New(cfg *config.ClientConfig, serviceName string, metrics *telemetry.Metric
 }
 
 // Do executes an HTTP request through the full middleware pipeline:
-// Circuit Breaker → Header Injection → OTEL Span → Retry → HTTP.
+// Circuit Breaker → Rate Limiter → Header Injection → OTEL Span → Retry → HTTP.
 //
 // The request's context is used for cancellation, tracing, and to extract
 // Request-ID and Correlation-ID for header propagation.
@@ -137,6 +145,10 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 
 	var resp *http.Response
 	_, err := c.breaker.Execute(func() (struct{}, error) {
+		if err := c.waitForRateLimit(ctx); err != nil {
+			return struct{}{}, err
+		}
+
 		c.injectHeaders(ctx, req)
 
 		spanCtx, span := c.startSpan(ctx, req)
@@ -193,6 +205,15 @@ func (c *Client) HealthCheck(_ context.Context) error {
 	default:
 		return fmt.Errorf("%s: unknown circuit breaker state %v", c.serviceName, state)
 	}
+}
+
+// waitForRateLimit blocks until the rate limiter allows the request or the
+// context is canceled. Returns nil immediately when rate limiting is disabled.
+func (c *Client) waitForRateLimit(ctx context.Context) error {
+	if c.limiter == nil {
+		return nil
+	}
+	return c.limiter.Wait(ctx)
 }
 
 // injectHeaders adds Request-ID and Correlation-ID headers to the outbound
