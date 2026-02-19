@@ -73,9 +73,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 
-// decodeJSONBody decodes the request body as JSON into dst. On failure,
+// maxJSONBodyBytes is the maximum allowed size for a JSON request body (1 MB).
+const maxJSONBodyBytes = 1 << 20
+
+// decodeJSONBody decodes the request body as JSON into dst. The body is
+// limited to maxJSONBodyBytes to prevent resource exhaustion. On failure,
 // it writes a 400 error response and returns false.
 func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		dto.WriteErrorResponse(w, r, &domain.ValidationError{
 			Fields: map[string]string{"body": "invalid JSON"},
