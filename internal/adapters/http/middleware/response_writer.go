@@ -5,7 +5,7 @@
 //	Recovery → RequestID → CorrelationID → OpenTelemetry → Logging → Timeout → Handler
 //
 // Each middleware is a func(http.Handler) http.Handler and can be composed
-// using the Chain helper.
+// using chi's r.Use() method.
 package middleware
 
 import "net/http"

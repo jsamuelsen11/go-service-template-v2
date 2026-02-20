@@ -72,12 +72,6 @@ type TodoResponse struct {
 	UpdatedAt       string `json:"updated_at"`
 }
 
-// TodoListResponse represents a list of TODO items in HTTP responses.
-type TodoListResponse struct {
-	Todos []TodoResponse `json:"todos"`
-	Count int            `json:"count"`
-}
-
 // ToTodoResponse converts a domain Todo entity to an HTTP response DTO.
 func ToTodoResponse(t *todo.Todo) TodoResponse {
 	return TodoResponse{
@@ -89,19 +83,6 @@ func ToTodoResponse(t *todo.Todo) TodoResponse {
 		ProgressPercent: t.ProgressPercent,
 		CreatedAt:       t.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       t.UpdatedAt.Format(time.RFC3339),
-	}
-}
-
-// ToTodoListResponse converts a slice of domain Todo entities to an HTTP
-// list response DTO.
-func ToTodoListResponse(todos []todo.Todo) TodoListResponse {
-	items := make([]TodoResponse, len(todos))
-	for i := range todos {
-		items[i] = ToTodoResponse(&todos[i])
-	}
-	return TodoListResponse{
-		Todos: items,
-		Count: len(items),
 	}
 }
 
