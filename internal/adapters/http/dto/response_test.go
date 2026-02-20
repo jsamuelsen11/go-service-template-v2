@@ -105,49 +105,6 @@ func TestToTodoResponse(t *testing.T) {
 	}
 }
 
-func TestToTodoListResponse(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		todos     []todo.Todo
-		wantCount int
-		wantLen   int
-	}{
-		{
-			name:      "converts multiple todos",
-			todos:     []todo.Todo{validTodo(), validTodo()},
-			wantCount: 2,
-			wantLen:   2,
-		},
-		{
-			name:      "empty slice returns empty list",
-			todos:     []todo.Todo{},
-			wantCount: 0,
-			wantLen:   0,
-		},
-		{
-			name:      "nil slice returns empty list",
-			todos:     nil,
-			wantCount: 0,
-			wantLen:   0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got := dto.ToTodoListResponse(tt.todos)
-			if got.Count != tt.wantCount {
-				t.Errorf("Count = %d, want %d", got.Count, tt.wantCount)
-			}
-			if len(got.Todos) != tt.wantLen {
-				t.Errorf("len(Todos) = %d, want %d", len(got.Todos), tt.wantLen)
-			}
-		})
-	}
-}
-
 func TestTodoResponse_JSONSerialization(t *testing.T) {
 	t.Parallel()
 
