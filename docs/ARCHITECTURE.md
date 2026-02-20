@@ -270,14 +270,20 @@ The **Anti-Corruption Layer** protects the domain from external service represen
 - Mapping HTTP errors to domain errors
 - Isolating the domain from external API changes
 
-**ACL File Convention**: Prefix all ACL files with the domain name so multiple downstream
-integrations coexist cleanly in the same `acl/` directory:
+**ACL Structure**: The top-level `acl/` directory holds shared infrastructure (`errors.go`
+for HTTP→domain error mapping, `requester.go` for the HTTP request lifecycle) and the client
+adapter. Each downstream domain integration has its own subdirectory with private DTOs and
+translators:
 
-| File                 | Purpose                            |
-| -------------------- | ---------------------------------- |
-| `todo_client.go`     | External client adapter            |
-| `todo_translator.go` | DTO → Domain entity translation    |
-| `todo_errors.go`     | HTTP status → Domain error mapping |
+| File / Directory        | Purpose                                                  |
+| ----------------------- | -------------------------------------------------------- |
+| `errors.go`             | Shared HTTP status → domain error mapping                |
+| `requester.go`          | Shared HTTP request lifecycle (marshal, execute, decode) |
+| `todo_client.go`        | External client adapter (implements `ports.TodoClient`)  |
+| `todo/dto.go`           | Private DTOs for the Todo external API                   |
+| `todo/translator.go`    | Todo DTO → domain entity translation                     |
+| `project/dto.go`        | Private DTOs for the Project external API                |
+| `project/translator.go` | Project DTO → domain entity translation                  |
 
 #### Platform Layer (`/internal/platform/`)
 
@@ -573,7 +579,7 @@ Domain services contain pure business logic with no infrastructure dependencies.
 They can be tested without mocks and belong in `/internal/domain/` alongside entities.
 
 ```go
-// internal/domain/todo/progress.go - Domain Service (Pure Logic)
+// Example: Domain Service (Pure Logic)
 func CalculateProjectProgress(todos []Todo) int {
     // Pure business rule - no I/O, no logging
     if len(todos) == 0 {

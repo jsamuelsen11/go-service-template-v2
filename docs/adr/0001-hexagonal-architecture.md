@@ -687,34 +687,57 @@ multiple domains, see [ARCHITECTURE.md > Scaling to Multiple Domains](../ARCHITE
 internal/
 ├── domain/              # Domain Layer - Pure business logic
 │   ├── doc.go           #   Package documentation
-│   ├── errors.go        #   Domain errors + msgRequired constant
-│   ├── filter.go        #   TodoFilter (status, category, project filters)
-│   ├── project.go       #   Project entity + validation
-│   ├── todo.go          #   Todo entity + validation (includes ProjectID)
-│   └── value_objects.go #   Value objects (TodoStatus, TodoCategory)
+│   ├── errors.go        #   Shared domain errors (ErrNotFound, ErrValidation, etc.)
+│   ├── context.go       #   Action and WriteStager interfaces
+│   ├── todo/            #   Todo bounded context
+│   │   ├── doc.go       #     Package documentation
+│   │   ├── todo.go      #     Todo entity + validation
+│   │   ├── category.go  #     TodoCategory value object
+│   │   ├── status.go    #     TodoStatus value object
+│   │   └── filter.go    #     TodoFilter (status, category filters)
+│   └── project/         #   Project bounded context
+│       ├── doc.go       #     Package documentation
+│       └── project.go   #     Project entity + validation
 ├── ports/               # Ports Layer - Interface contracts
 │   ├── doc.go           #   Package documentation
 │   ├── services.go      #   ProjectService port (implemented by app layer)
 │   ├── clients.go       #   TodoClient port (implemented by adapters)
 │   └── health.go        #   HealthChecker, HealthRegistry interfaces
 ├── app/                 # Application Layer - Use case orchestration
-│   └── project_service.go
+│   ├── project_service.go    #   ProjectService implementation
+│   ├── context/              #   Request-scoped context and caching
+│   │   ├── context.go        #     RequestContext, GetOrFetch, DataProvider
+│   │   ├── action.go         #     actionItem, actionGroup internals
+│   │   ├── commit.go         #     Commit with rollback
+│   │   └── saferef.go        #     SafeRef[T] for shared mutable cache entries
+│   └── fanout/               #   Bounded-concurrency fan-out helper
+│       └── fanout.go
 ├── adapters/            # Adapters Layer - Infrastructure implementations
 │   ├── http/            #   Inbound adapters (handlers, middleware)
 │   └── clients/         #   Outbound adapters
 │       └── acl/         #   ⭐ Anti-Corruption Layer
-│           ├── todo_client.go       # External client adapter
-│           ├── todo_translator.go   # DTO → Domain translation
-│           └── todo_errors.go       # Error translation
+│           ├── errors.go          #   Shared HTTP → domain error translation
+│           ├── requester.go       #   Shared HTTP request lifecycle helper
+│           ├── todo_client.go     #   External client adapter (implements ports.TodoClient)
+│           ├── todo/              #   Todo ACL subpackage
+│           │   ├── dto.go         #     External API DTOs (unexported)
+│           │   └── translator.go  #     DTO → domain entity translation
+│           └── project/           #   Project ACL subpackage
+│               ├── dto.go         #     External API DTOs (unexported)
+│               └── translator.go  #     DTO → domain entity translation
 └── platform/            # Platform Layer - Cross-cutting concerns
-    ├── config/          #   Configuration loading
-    ├── logging/         #   Structured logging
-    └── telemetry/       #   Tracing and metrics
+    ├── config/          #   Configuration loading and validation
+    ├── health/          #   Thread-safe health check registry
+    ├── httpclient/      #   Instrumented HTTP client (retry, circuit breaker)
+    ├── logging/         #   Structured logging setup
+    └── telemetry/       #   OpenTelemetry tracing and metrics
 ```
 
-> **ACL file naming convention**: Prefix all ACL files with the domain name (`todo_client.go`,
-> `todo_translator.go`, `todo_errors.go`). This allows multiple downstream integrations to
-> coexist cleanly in the same `acl/` directory.
+> **ACL structure**: The top-level `acl/` directory holds shared infrastructure files
+> (`errors.go` for HTTP→domain error translation, `requester.go` for the HTTP request
+> lifecycle). Each downstream domain integration lives in its own subdirectory (`todo/`,
+> `project/`) with private DTOs and translators. The client adapter (`todo_client.go`)
+> stays at the top level since it implements a port interface.
 
 ### Request Context Pattern for Orchestration
 
