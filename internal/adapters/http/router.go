@@ -37,6 +37,7 @@ func NewRouter(
 
 		// Nested project-todo operations.
 		r.Post("/projects/{projectId}/todos", projectHandler.AddProjectTodo)
+		r.Patch("/projects/{projectId}/todos/bulk", projectHandler.BulkUpdateProjectTodos)
 		r.Patch("/projects/{projectId}/todos/{todoId}", projectHandler.UpdateProjectTodo)
 		r.Delete("/projects/{projectId}/todos/{todoId}", projectHandler.RemoveProjectTodo)
 	})

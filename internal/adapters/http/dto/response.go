@@ -7,6 +7,7 @@ import (
 
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 )
 
 // ProjectResponse represents a single project in HTTP responses.
@@ -101,5 +102,46 @@ func ToTodoListResponse(todos []todo.Todo) TodoListResponse {
 	return TodoListResponse{
 		Todos: items,
 		Count: len(items),
+	}
+}
+
+// BulkUpdateTodosResponse represents the result of a bulk update operation.
+// It includes both successful updates and per-item errors.
+type BulkUpdateTodosResponse struct {
+	Updated   []TodoResponse        `json:"updated"`
+	Errors    []BulkUpdateErrorItem `json:"errors"`
+	Total     int                   `json:"total"`
+	Succeeded int                   `json:"succeeded"`
+	Failed    int                   `json:"failed"`
+}
+
+// BulkUpdateErrorItem represents a single failed update within a bulk operation.
+type BulkUpdateErrorItem struct {
+	TodoID  int64  `json:"todo_id"`
+	Message string `json:"message"`
+}
+
+// ToBulkUpdateResponse converts a ports.BulkUpdateResult to an HTTP response DTO.
+func ToBulkUpdateResponse(result *ports.BulkUpdateResult) BulkUpdateTodosResponse {
+	updated := make([]TodoResponse, len(result.Updated))
+	for i := range result.Updated {
+		updated[i] = ToTodoResponse(&result.Updated[i])
+	}
+
+	errs := make([]BulkUpdateErrorItem, len(result.Errors))
+	for i, e := range result.Errors {
+		errs[i] = BulkUpdateErrorItem{
+			TodoID:  e.TodoID,
+			Message: e.Err.Error(),
+		}
+	}
+
+	total := len(result.Updated) + len(result.Errors)
+	return BulkUpdateTodosResponse{
+		Updated:   updated,
+		Errors:    errs,
+		Total:     total,
+		Succeeded: len(result.Updated),
+		Failed:    len(result.Errors),
 	}
 }

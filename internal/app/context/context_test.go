@@ -3,6 +3,8 @@ package appctx
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -10,7 +12,10 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 )
 
-const testFetchValue = "hello"
+const (
+	testFetchValue   = "hello"
+	testUpdatedValue = "updated"
+)
 
 // testAction is a test implementation of Action that records calls and
 // optionally returns errors.
@@ -749,7 +754,7 @@ func TestStage_UpdatesCacheAndQueuesAction(t *testing.T) {
 		return "original", nil
 	})
 
-	err := rc.Stage("todo:1", "updated", a)
+	err := rc.Stage("todo:1", testUpdatedValue, a)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -762,8 +767,8 @@ func TestStage_UpdatesCacheAndQueuesAction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if val != "updated" {
-		t.Fatalf("got %q, want %q", val, "updated")
+	if val != testUpdatedValue {
+		t.Fatalf("got %q, want %q", val, testUpdatedValue)
 	}
 
 	// Verify action was queued.
@@ -944,5 +949,252 @@ func TestExecute_NilAction(t *testing.T) {
 	err := rc.Execute(nil)
 	if !errors.Is(err, ErrNilAction) {
 		t.Fatalf("got %v, want ErrNilAction", err)
+	}
+}
+
+// --- Concurrent safety tests ---
+
+func TestGetOrFetch_ConcurrentSameKey(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	var fetchCount atomic.Int32
+	const goroutines = 50
+
+	var wg sync.WaitGroup
+	for range goroutines {
+		wg.Go(func() {
+			val, err := GetOrFetch(rc, "shared", func(_ context.Context) (int, error) {
+				fetchCount.Add(1)
+				return 42, nil
+			})
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if val != 42 {
+				t.Errorf("got %d, want 42", val)
+			}
+		})
+	}
+	wg.Wait()
+
+	// All goroutines should see 42. Some may fetch (race on cache miss) but
+	// the value stored must be consistent.
+	if fetchCount.Load() == 0 {
+		t.Fatal("expected at least one fetch call")
+	}
+}
+
+func TestGetOrFetch_ConcurrentDifferentKeys(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	const goroutines = 50
+	var wg sync.WaitGroup
+
+	for i := range goroutines {
+		wg.Go(func() {
+			key := fmt.Sprintf("key:%d", i)
+			val, err := GetOrFetch(rc, key, func(_ context.Context) (int, error) {
+				return i, nil
+			})
+			if err != nil {
+				t.Errorf("unexpected error for %s: %v", key, err)
+			}
+			if val != i {
+				t.Errorf("key %s: got %d, want %d", key, val, i)
+			}
+		})
+	}
+	wg.Wait()
+}
+
+func TestGetRef_ConcurrentSharedRef(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	const writers = 10
+	const readers = 20
+	var wg sync.WaitGroup
+
+	fetchFn := func(_ context.Context) (int, error) { return 0, nil }
+
+	// Writers increment via Update.
+	for range writers {
+		wg.Go(func() {
+			ref, err := GetRef(rc, "counter", fetchFn)
+			if err != nil {
+				t.Errorf("GetRef error: %v", err)
+				return
+			}
+			ref.Update(func(v *int) { *v++ })
+		})
+	}
+
+	// Readers just read — should never panic or race.
+	for range readers {
+		wg.Go(func() {
+			ref, err := GetRef(rc, "counter", fetchFn)
+			if err != nil {
+				t.Errorf("GetRef error: %v", err)
+				return
+			}
+			_ = ref.Get()
+		})
+	}
+
+	wg.Wait()
+
+	ref, _ := GetRef(rc, "counter", fetchFn)
+	if got := ref.Get(); got != writers {
+		t.Errorf("final value = %d, want %d", got, writers)
+	}
+}
+
+func TestPut_ConcurrentUpdates(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	// Pre-populate.
+	_, _ = GetOrFetch(rc, "key", func(_ context.Context) (int, error) {
+		return 0, nil
+	})
+
+	const goroutines = 50
+	var wg sync.WaitGroup
+
+	for i := range goroutines {
+		wg.Go(func() {
+			Put(rc, "key", i)
+		})
+	}
+	wg.Wait()
+
+	// Value should be one of the written values (no crash, no race).
+	val, err := GetOrFetch(rc, "key", func(_ context.Context) (int, error) {
+		t.Fatal("should not fetch")
+		return 0, nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val < 0 || val >= goroutines {
+		t.Fatalf("unexpected value %d", val)
+	}
+}
+
+func TestPut_UpdatesSafeRef(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	// Establish a SafeRef via GetRef.
+	ref, _ := GetRef(rc, "entity", func(_ context.Context) (string, error) {
+		return "original", nil
+	})
+
+	// Put should update the same SafeRef.
+	Put(rc, "entity", testUpdatedValue)
+
+	if got := ref.Get(); got != testUpdatedValue {
+		t.Fatalf("ref.Get() = %q, want %q", got, testUpdatedValue)
+	}
+
+	// GetOrFetch should also see the update.
+	val, _ := GetOrFetch(rc, "entity", func(_ context.Context) (string, error) {
+		t.Fatal("should not fetch")
+		return "", nil
+	})
+	if val != testUpdatedValue {
+		t.Fatalf("GetOrFetch = %q, want %q", val, testUpdatedValue)
+	}
+}
+
+func TestInvalidate_ConcurrentSafe(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	const goroutines = 30
+	var wg sync.WaitGroup
+
+	// Mix of GetOrFetch and Invalidate on the same key.
+	for range goroutines {
+		wg.Go(func() {
+			_, _ = GetOrFetch(rc, "volatile", func(_ context.Context) (int, error) {
+				return 1, nil
+			})
+		})
+		wg.Go(func() {
+			rc.Invalidate("volatile")
+		})
+	}
+	wg.Wait()
+}
+
+func TestAddAction_ConcurrentSafe(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	const goroutines = 50
+	var wg sync.WaitGroup
+
+	for i := range goroutines {
+		wg.Go(func() {
+			_ = rc.AddAction(&testAction{desc: fmt.Sprintf("a%d", i)})
+		})
+	}
+	wg.Wait()
+
+	if len(rc.items) != goroutines {
+		t.Fatalf("got %d items, want %d", len(rc.items), goroutines)
+	}
+}
+
+func TestConcurrent_CacheAndQueue(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+
+	const goroutines = 30
+	var wg sync.WaitGroup
+
+	// Concurrent cache operations.
+	for i := range goroutines {
+		wg.Go(func() {
+			key := fmt.Sprintf("item:%d", i)
+			_, _ = GetOrFetch(rc, key, func(_ context.Context) (int, error) {
+				return i, nil
+			})
+		})
+	}
+
+	// Concurrent queue operations (independent of cache).
+	for i := range goroutines {
+		wg.Go(func() {
+			_ = rc.AddAction(&testAction{desc: fmt.Sprintf("q%d", i)})
+		})
+	}
+
+	wg.Wait()
+
+	if len(rc.items) != goroutines {
+		t.Fatalf("got %d items, want %d", len(rc.items), goroutines)
+	}
+}
+
+func TestWithRequestContext_RoundTrip(t *testing.T) {
+	t.Parallel()
+	rc := New(context.Background())
+	ctx := WithRequestContext(context.Background(), rc)
+
+	got := FromContext(ctx)
+	if got != rc {
+		t.Fatal("FromContext did not return the stored RequestContext")
+	}
+}
+
+func TestFromContext_NoRC(t *testing.T) {
+	t.Parallel()
+	got := FromContext(context.Background())
+	if got != nil {
+		t.Fatalf("expected nil, got %v", got)
 	}
 }

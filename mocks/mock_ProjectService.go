@@ -5,6 +5,7 @@ package mocks
 import (
 	context "context"
 
+	ports "github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 	mock "github.com/stretchr/testify/mock"
 
 	project "github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
@@ -81,6 +82,66 @@ func (_c *MockProjectService_AddTodo_Call) Return(_a0 *todo.Todo, _a1 error) *Mo
 }
 
 func (_c *MockProjectService_AddTodo_Call) RunAndReturn(run func(context.Context, int64, *todo.Todo) (*todo.Todo, error)) *MockProjectService_AddTodo_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// BulkUpdateTodos provides a mock function with given fields: ctx, projectID, updates
+func (_m *MockProjectService) BulkUpdateTodos(ctx context.Context, projectID int64, updates []ports.TodoUpdate) (*ports.BulkUpdateResult, error) {
+	ret := _m.Called(ctx, projectID, updates)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BulkUpdateTodos")
+	}
+
+	var r0 *ports.BulkUpdateResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, []ports.TodoUpdate) (*ports.BulkUpdateResult, error)); ok {
+		return rf(ctx, projectID, updates)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, []ports.TodoUpdate) *ports.BulkUpdateResult); ok {
+		r0 = rf(ctx, projectID, updates)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ports.BulkUpdateResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, []ports.TodoUpdate) error); ok {
+		r1 = rf(ctx, projectID, updates)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockProjectService_BulkUpdateTodos_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BulkUpdateTodos'
+type MockProjectService_BulkUpdateTodos_Call struct {
+	*mock.Call
+}
+
+// BulkUpdateTodos is a helper method to define mock.On call
+//   - ctx context.Context
+//   - projectID int64
+//   - updates []ports.TodoUpdate
+func (_e *MockProjectService_Expecter) BulkUpdateTodos(ctx interface{}, projectID interface{}, updates interface{}) *MockProjectService_BulkUpdateTodos_Call {
+	return &MockProjectService_BulkUpdateTodos_Call{Call: _e.mock.On("BulkUpdateTodos", ctx, projectID, updates)}
+}
+
+func (_c *MockProjectService_BulkUpdateTodos_Call) Run(run func(ctx context.Context, projectID int64, updates []ports.TodoUpdate)) *MockProjectService_BulkUpdateTodos_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64), args[2].([]ports.TodoUpdate))
+	})
+	return _c
+}
+
+func (_c *MockProjectService_BulkUpdateTodos_Call) Return(_a0 *ports.BulkUpdateResult, _a1 error) *MockProjectService_BulkUpdateTodos_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockProjectService_BulkUpdateTodos_Call) RunAndReturn(run func(context.Context, int64, []ports.TodoUpdate) (*ports.BulkUpdateResult, error)) *MockProjectService_BulkUpdateTodos_Call {
 	_c.Call.Return(run)
 	return _c
 }

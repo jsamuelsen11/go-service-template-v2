@@ -8,11 +8,20 @@ import (
 	"log/slog"
 
 	appctx "github.com/jsamuelsen11/go-service-template-v2/internal/app/context"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/app/fanout"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 )
+
+// maxBulkUpdateSize is the maximum number of todos that can be updated
+// in a single bulk operation.
+const maxBulkUpdateSize = 20
+
+// maxConcurrentUpdates limits the number of concurrent API calls during
+// bulk update operations.
+const maxConcurrentUpdates = 5
 
 // Compile-time check that ProjectService implements ports.ProjectService.
 var _ ports.ProjectService = (*ProjectService)(nil)
@@ -300,4 +309,126 @@ func (s *ProjectService) RemoveTodo(ctx context.Context, projectID, todoID int64
 	}
 
 	return nil
+}
+
+// validateBulkUpdates checks that the updates slice is non-empty, within the
+// max batch size, contains no duplicate IDs, and each item has valid todo data.
+func validateBulkUpdates(updates []ports.TodoUpdate) error {
+	if len(updates) == 0 {
+		return &domain.ValidationError{Fields: map[string]string{
+			"updates": "must not be empty",
+		}}
+	}
+	if len(updates) > maxBulkUpdateSize {
+		return &domain.ValidationError{Fields: map[string]string{
+			"updates": fmt.Sprintf("exceeds maximum batch size of %d", maxBulkUpdateSize),
+		}}
+	}
+
+	seen := make(map[int64]bool, len(updates))
+	for i, u := range updates {
+		if seen[u.TodoID] {
+			return &domain.ValidationError{Fields: map[string]string{
+				fmt.Sprintf("updates[%d].todo_id", i): fmt.Sprintf("duplicate todo ID %d", u.TodoID),
+			}}
+		}
+		seen[u.TodoID] = true
+
+		if u.Todo == nil {
+			return &domain.ValidationError{Fields: map[string]string{
+				fmt.Sprintf("updates[%d].todo", i): "is required",
+			}}
+		}
+		if err := u.Todo.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// BulkUpdateTodos updates multiple todos within the specified project
+// concurrently. Each update succeeds or fails independently; the response
+// reports per-item outcomes. Returns a hard error only for request-level
+// failures (validation, project not found, ownership check).
+func (s *ProjectService) BulkUpdateTodos(ctx context.Context, projectID int64, updates []ports.TodoUpdate) (*ports.BulkUpdateResult, error) {
+	s.logger.InfoContext(ctx, "bulk updating todos in project",
+		slog.Int64("project_id", projectID),
+		slog.Int("count", len(updates)),
+	)
+
+	if err := validateBulkUpdates(updates); err != nil {
+		return nil, err
+	}
+
+	// Verify project exists (memoized).
+	if _, err := s.fetchProject(ctx, projectID); err != nil {
+		s.logger.ErrorContext(ctx, "failed to verify project",
+			slog.String("operation", "BulkUpdateTodos"),
+			slog.Int64("project_id", projectID),
+			slog.Any("error", err),
+		)
+		return nil, fmt.Errorf("verifying project: %w", err)
+	}
+
+	// Fetch all project todos to verify ownership in bulk.
+	projectTodos, err := s.todoClient.GetProjectTodos(ctx, projectID, todo.Filter{})
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to fetch project todos",
+			slog.String("operation", "BulkUpdateTodos"),
+			slog.Int64("project_id", projectID),
+			slog.Any("error", err),
+		)
+		return nil, fmt.Errorf("fetching project todos: %w", err)
+	}
+
+	projectTodoIDs := make(map[int64]bool, len(projectTodos))
+	for i := range projectTodos {
+		projectTodoIDs[projectTodos[i].ID] = true
+	}
+	for _, u := range updates {
+		if !projectTodoIDs[u.TodoID] {
+			return nil, fmt.Errorf("todo %d does not belong to project %d: %w",
+				u.TodoID, projectID, domain.ErrNotFound)
+		}
+	}
+
+	// Set ProjectID on each update.
+	for i := range updates {
+		updates[i].Todo.ProjectID = &projectID
+	}
+
+	// Fan out updates concurrently with bounded workers.
+	results := fanout.Run(ctx, maxConcurrentUpdates, updates,
+		func(ctx context.Context, u ports.TodoUpdate) (*todo.Todo, error) {
+			return s.todoClient.UpdateTodo(ctx, u.TodoID, u.Todo)
+		},
+	)
+
+	// Collect results.
+	result := &ports.BulkUpdateResult{}
+	for i, r := range results {
+		if r.Err != nil {
+			s.logger.ErrorContext(ctx, "failed to update todo in bulk operation",
+				slog.String("operation", "BulkUpdateTodos"),
+				slog.Int64("project_id", projectID),
+				slog.Int64("todo_id", updates[i].TodoID),
+				slog.Any("error", r.Err),
+			)
+			result.Errors = append(result.Errors, ports.BulkUpdateError{
+				TodoID: updates[i].TodoID,
+				Err:    r.Err,
+			})
+		} else {
+			result.Updated = append(result.Updated, *r.Value)
+		}
+	}
+
+	s.logger.InfoContext(ctx, "bulk update completed",
+		slog.String("operation", "BulkUpdateTodos"),
+		slog.Int64("project_id", projectID),
+		slog.Int("succeeded", len(result.Updated)),
+		slog.Int("failed", len(result.Errors)),
+	)
+
+	return result, nil
 }

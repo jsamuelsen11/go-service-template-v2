@@ -765,6 +765,53 @@ func (s *DashboardService) GetDashboard(ctx context.Context, projectID string) (
 }
 ```
 
+**Concurrent Fan-Out with Partial Success:**
+
+For bulk operations where each item should succeed or fail independently, use the
+`fanout.Run` helper (`internal/app/fanout/`). This provides bounded concurrency, ordered
+results, and context-aware cancellation. It differs from ActionGroup (all-or-nothing
+rollback) -- here, individual failures are collected and reported per item:
+
+```go
+const maxConcurrentUpdates = 5
+
+func (s *ProjectService) BulkUpdateTodos(ctx context.Context, projectID int64, updates []ports.TodoUpdate) (*ports.BulkUpdateResult, error) {
+    // 1. Validate inputs and verify ownership (fail fast on hard errors)
+    // ...
+
+    // 2. Fan out individual API calls with bounded concurrency
+    results := fanout.Run(ctx, maxConcurrentUpdates, updates,
+        func(ctx context.Context, u ports.TodoUpdate) (*todo.Todo, error) {
+            return s.todoClient.UpdateTodo(ctx, u.TodoID, u.Todo)
+        },
+    )
+
+    // 3. Collect per-item outcomes (results are in input order)
+    result := &ports.BulkUpdateResult{}
+    for i, r := range results {
+        if r.Err != nil {
+            result.Errors = append(result.Errors, ports.BulkUpdateError{TodoID: updates[i].TodoID, Err: r.Err})
+        } else {
+            result.Updated = append(result.Updated, *r.Value)
+        }
+    }
+    return result, nil
+}
+```
+
+`fanout.Run[T, R]` is generic, bounded, and context-aware — see
+[ADR-0002](adr/0002-thread-safety.md) for the full design. The HTTP client's rate limiter
+throttles concurrent outbound calls automatically. The handler always returns HTTP 200 for
+valid requests; per-item failures appear in the response body.
+
+**When to use each pattern:**
+
+| Pattern                      | Semantics       | Use When                                        |
+| ---------------------------- | --------------- | ----------------------------------------------- |
+| **ActionGroup + Commit**     | All-or-nothing  | Items must all succeed or all roll back         |
+| **Concurrent fan-out**       | Partial success | Items are independent; report per-item outcomes |
+| **Sequential orchestration** | Step-by-step    | Steps depend on prior results                   |
+
 #### Aggregate Boundaries for API Call Grouping
 
 When orchestrating multiple API calls, group related data fetches considering:
@@ -992,16 +1039,23 @@ Pattern provides request-scoped data fetching, staged writes, and atomic commit 
 
 See [ADR-0001](./adr/0001-hexagonal-architecture.md#request-context-pattern-for-orchestration) for the architectural decision.
 
-| Component              | Purpose                                                       |
-| ---------------------- | ------------------------------------------------------------- |
-| `RequestContext`       | Main struct with in-memory cache and action collection        |
-| `GetOrFetch()`         | Stage 1: Lazy memoization for expensive fetches               |
-| `AddAction()`          | Stage 2: Stage write operations for later execution           |
-| `Commit()`             | Stage 3: Execute all actions with automatic rollback          |
-| `DataProvider`         | Interface for type-safe data fetching (see below)             |
-| `Action`               | Interface for staged write operations (see below)             |
-| `FromContext()`        | Extract RequestContext from `context.Context` (nil if absent) |
-| `WithRequestContext()` | Store RequestContext in `context.Context`                     |
+| Component              | Purpose                                                          |
+| ---------------------- | ---------------------------------------------------------------- |
+| `RequestContext`       | Main struct with thread-safe cache and action queue              |
+| `GetOrFetch[T]()`      | Lazy memoization — returns a copy of the cached entity           |
+| `GetRef[T]()`          | Shared mutable access — returns `*SafeRef[T]` for concurrent use |
+| `Put[T]()`             | Write-through cache update — visible to all goroutines           |
+| `Invalidate()`         | Remove cached entry, forcing re-fetch on next access             |
+| `SafeRef[T]`           | Per-entity thread-safe wrapper with `Get`, `Set`, `Update`       |
+| `AddAction()`          | Stage write operations for later execution                       |
+| `Commit()`             | Execute all actions with automatic rollback                      |
+| `DataProvider`         | Interface for type-safe data fetching (see below)                |
+| `Action`               | Interface for staged write operations (see below)                |
+| `FromContext()`        | Extract RequestContext from `context.Context` (nil if absent)    |
+| `WithRequestContext()` | Store RequestContext in `context.Context`                        |
+
+All cache and queue operations are **thread-safe** — see [ADR-0002](adr/0002-thread-safety.md)
+for the full concurrency design including lock hierarchy and per-method analysis.
 
 #### Middleware Injection
 
@@ -1150,6 +1204,43 @@ rc.AddGroup(
 
 - **Parallel rollback**: If any action in a group fails, in-progress actions are cancelled
   via context cancellation, then all completed actions roll back in reverse group order.
+
+#### Thread Safety
+
+All `RequestContext` operations are thread-safe for concurrent use from multiple goroutines.
+The cache and action queue use independent mutexes, so they do not constrain each other.
+
+**For simple reads** (get a copy of a cached entity):
+
+```go
+// GetOrFetch returns a copy — safe for the calling goroutine to use.
+todo, err := appctx.GetOrFetch(rc, "todo:123", fetchTodo)
+```
+
+**For shared mutable access** (multiple goroutines read/write the same entity):
+
+```go
+// GetRef returns a *SafeRef[T] — all callers get the same reference.
+ref, err := appctx.GetRef(rc, "todo:123", fetchTodo)
+
+// Goroutine A: read
+current := ref.Get()  // returns a copy under read lock
+
+// Goroutine B: write (immediately visible to all holders)
+ref.Update(func(t *todo.Todo) { t.Status = todo.StatusComplete })
+
+// Goroutine C: write-through cache update
+appctx.Put(rc, "todo:123", updatedTodo)
+```
+
+**Key design properties:**
+
+- No lock is ever held during I/O (fetches happen before cache lock is acquired)
+- Cache works before, during, and after `Commit()` (independent of queue lifecycle)
+- Per-entity `SafeRef` mutexes mean different entities don't contend with each other
+
+See [ADR-0002](adr/0002-thread-safety.md) for the complete concurrency design: lock
+hierarchy, per-method lock analysis, memory layout, and sequence diagrams.
 
 #### Example: Todo Completion Saga
 
