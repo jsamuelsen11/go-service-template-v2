@@ -2,6 +2,7 @@ version: "3"
 
 vars:
   COVERAGE_DIR: .coverage
+  IMAGE_NAME: go-service-template-v2
 
 tasks:
   run:
@@ -57,3 +58,30 @@ tasks:
     desc: Run vulnerability check
     cmds:
       - go tool govulncheck ./...
+
+  docker:build:
+    desc: Build the Docker image
+    cmds:
+      - docker build -t {{.IMAGE_NAME}}:latest .
+
+  docker:run:
+    desc: "Run the Docker container (usage: task docker:run PROFILE=prod)"
+    requires:
+      vars: [PROFILE]
+    cmds:
+      - docker run --rm -p 8080:8080 -e APP_PROFILE={{.PROFILE}} {{.IMAGE_NAME}}:latest
+
+  docker:lint:
+    desc: Lint the Dockerfile with hadolint
+    cmds:
+      - hadolint Dockerfile
+
+  docker:dev:
+    desc: Start local development server with hot reload in Docker
+    cmds:
+      - docker run --rm -p 8080:8080
+        -v .:/src
+        -v {{.IMAGE_NAME}}-gomod:/go/pkg/mod
+        -v {{.IMAGE_NAME}}-gobuild:/root/.cache/go-build
+        -w /src
+        golang:1.25.6-alpine go tool air
