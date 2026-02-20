@@ -13,6 +13,7 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 	"github.com/jsamuelsen11/go-service-template-v2/mocks"
 )
 
@@ -727,7 +728,7 @@ func TestProjectService_AddTodo_MemoizesProjectVerification(t *testing.T) {
 
 	td2 := validTodo()
 	td2.Title = "Second todo"
-	td2.Description = "Second desc"
+	td2.Description = secondTodoDesc
 	created2 := validTodo()
 	created2.ID = 43
 	created2.ProjectID = int64Ptr(5)
@@ -830,4 +831,230 @@ func TestProjectService_RemoveTodo_MemoizesProjectVerification(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RemoveTodo() second call error = %v, want nil", err)
 	}
+}
+
+// secondTodoDesc is used across tests for the second todo item.
+const secondTodoDesc = "Second desc"
+
+// --- BulkUpdateTodos ---
+
+func TestProjectService_BulkUpdateTodos_Success(t *testing.T) {
+	t.Parallel()
+	mockClient := mocks.NewMockTodoClient(t)
+	svc := NewProjectService(mockClient, discardLogger())
+
+	proj := validProject()
+	mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+	projectTodos := []todo.Todo{
+		{ID: 10, Title: "A", Description: "D", Status: todo.StatusPending, Category: todo.CategoryWork},
+		{ID: 11, Title: "B", Description: "D", Status: todo.StatusPending, Category: todo.CategoryWork},
+	}
+	mockClient.EXPECT().GetProjectTodos(mock.Anything, int64(1), todo.Filter{}).Return(projectTodos, nil)
+
+	td1 := validTodo()
+	updated1 := validTodo()
+	updated1.ID = 10
+	updated1.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().UpdateTodo(mock.Anything, int64(10), &td1).Return(&updated1, nil)
+
+	td2 := validTodo()
+	td2.Title = "Second"
+	td2.Description = secondTodoDesc
+	updated2 := validTodo()
+	updated2.ID = 11
+	updated2.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().UpdateTodo(mock.Anything, int64(11), &td2).Return(&updated2, nil)
+
+	updates := []ports.TodoUpdate{
+		{TodoID: 10, Todo: &td1},
+		{TodoID: 11, Todo: &td2},
+	}
+
+	result, err := svc.BulkUpdateTodos(context.Background(), 1, updates)
+	if err != nil {
+		t.Fatalf("BulkUpdateTodos() error = %v, want nil", err)
+	}
+	if len(result.Updated) != 2 {
+		t.Errorf("Updated count = %d, want 2", len(result.Updated))
+	}
+	if len(result.Errors) != 0 {
+		t.Errorf("Errors count = %d, want 0", len(result.Errors))
+	}
+}
+
+func TestProjectService_BulkUpdateTodos_PartialFailure(t *testing.T) {
+	t.Parallel()
+	mockClient := mocks.NewMockTodoClient(t)
+	svc := NewProjectService(mockClient, discardLogger())
+
+	proj := validProject()
+	mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+	projectTodos := []todo.Todo{
+		{ID: 10, Title: "A", Description: "D", Status: todo.StatusPending, Category: todo.CategoryWork},
+		{ID: 11, Title: "B", Description: "D", Status: todo.StatusPending, Category: todo.CategoryWork},
+	}
+	mockClient.EXPECT().GetProjectTodos(mock.Anything, int64(1), todo.Filter{}).Return(projectTodos, nil)
+
+	td1 := validTodo()
+	updated1 := validTodo()
+	updated1.ID = 10
+	updated1.ProjectID = int64Ptr(1)
+	mockClient.EXPECT().UpdateTodo(mock.Anything, int64(10), &td1).Return(&updated1, nil)
+
+	td2 := validTodo()
+	td2.Title = "Second"
+	td2.Description = secondTodoDesc
+	mockClient.EXPECT().UpdateTodo(mock.Anything, int64(11), &td2).Return(nil, domain.ErrUnavailable)
+
+	updates := []ports.TodoUpdate{
+		{TodoID: 10, Todo: &td1},
+		{TodoID: 11, Todo: &td2},
+	}
+
+	result, err := svc.BulkUpdateTodos(context.Background(), 1, updates)
+	if err != nil {
+		t.Fatalf("BulkUpdateTodos() error = %v, want nil", err)
+	}
+	if len(result.Updated) != 1 {
+		t.Errorf("Updated count = %d, want 1", len(result.Updated))
+	}
+	if len(result.Errors) != 1 {
+		t.Errorf("Errors count = %d, want 1", len(result.Errors))
+	}
+	if len(result.Errors) > 0 && result.Errors[0].TodoID != 11 {
+		t.Errorf("Errors[0].TodoID = %d, want 11", result.Errors[0].TodoID)
+	}
+}
+
+func TestProjectService_BulkUpdateTodos_Validation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty updates", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		_, err := svc.BulkUpdateTodos(context.Background(), 1, []ports.TodoUpdate{})
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("BulkUpdateTodos() error = %v, want ErrValidation", err)
+		}
+	})
+
+	t.Run("exceeds max batch size", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		updates := make([]ports.TodoUpdate, maxBulkUpdateSize+1)
+		for i := range updates {
+			td := validTodo()
+			updates[i] = ports.TodoUpdate{TodoID: int64(i + 1), Todo: &td}
+		}
+
+		_, err := svc.BulkUpdateTodos(context.Background(), 1, updates)
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("BulkUpdateTodos() error = %v, want ErrValidation", err)
+		}
+	})
+
+	t.Run("duplicate IDs", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		td1 := validTodo()
+		td2 := validTodo()
+		updates := []ports.TodoUpdate{
+			{TodoID: 10, Todo: &td1},
+			{TodoID: 10, Todo: &td2},
+		}
+
+		_, err := svc.BulkUpdateTodos(context.Background(), 1, updates)
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("BulkUpdateTodos() error = %v, want ErrValidation", err)
+		}
+	})
+
+	t.Run("nil todo in update", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		updates := []ports.TodoUpdate{
+			{TodoID: 10, Todo: nil},
+		}
+
+		_, err := svc.BulkUpdateTodos(context.Background(), 1, updates)
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("BulkUpdateTodos() error = %v, want ErrValidation", err)
+		}
+	})
+}
+
+func TestProjectService_BulkUpdateTodos_Errors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("project not found", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		mockClient.EXPECT().GetProject(mock.Anything, int64(99)).Return(nil, domain.ErrNotFound)
+
+		td := validTodo()
+		updates := []ports.TodoUpdate{
+			{TodoID: 10, Todo: &td},
+		}
+
+		_, err := svc.BulkUpdateTodos(context.Background(), 99, updates)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("BulkUpdateTodos() error = %v, want ErrNotFound", err)
+		}
+	})
+
+	t.Run("GetProjectTodos fails", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+		mockClient.EXPECT().GetProjectTodos(mock.Anything, int64(1), todo.Filter{}).Return(nil, domain.ErrUnavailable)
+
+		td := validTodo()
+		updates := []ports.TodoUpdate{
+			{TodoID: 10, Todo: &td},
+		}
+
+		_, err := svc.BulkUpdateTodos(context.Background(), 1, updates)
+		if !errors.Is(err, domain.ErrUnavailable) {
+			t.Errorf("BulkUpdateTodos() error = %v, want ErrUnavailable", err)
+		}
+	})
+
+	t.Run("todo not in project", func(t *testing.T) {
+		t.Parallel()
+		mockClient := mocks.NewMockTodoClient(t)
+		svc := NewProjectService(mockClient, discardLogger())
+
+		proj := validProject()
+		mockClient.EXPECT().GetProject(mock.Anything, int64(1)).Return(&proj, nil)
+
+		projectTodos := []todo.Todo{
+			{ID: 10, Title: "A", Description: "D", Status: todo.StatusPending, Category: todo.CategoryWork},
+		}
+		mockClient.EXPECT().GetProjectTodos(mock.Anything, int64(1), todo.Filter{}).Return(projectTodos, nil)
+
+		td := validTodo()
+		updates := []ports.TodoUpdate{
+			{TodoID: 999, Todo: &td}, // not in project
+		}
+
+		_, err := svc.BulkUpdateTodos(context.Background(), 1, updates)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("BulkUpdateTodos() error = %v, want ErrNotFound", err)
+		}
+	})
 }

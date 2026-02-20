@@ -121,10 +121,16 @@ func (g *actionGroup) description() string {
 // AddAction stages a single action for later execution by Commit.
 // Returns ErrNilAction if action is nil, or ErrAlreadyCommitted if the
 // RequestContext has already been committed.
+//
+// AddAction is safe for concurrent use.
 func (rc *RequestContext) AddAction(action domain.Action) error {
 	if action == nil {
 		return ErrNilAction
 	}
+
+	rc.queueMu.Lock()
+	defer rc.queueMu.Unlock()
+
 	if rc.committed {
 		return ErrAlreadyCommitted
 	}
@@ -136,12 +142,18 @@ func (rc *RequestContext) AddAction(action domain.Action) error {
 // All actions in the group execute concurrently when the group's turn
 // arrives during Commit. Returns ErrNilAction if any action is nil, or
 // ErrAlreadyCommitted if the RequestContext has already been committed.
+//
+// AddGroup is safe for concurrent use.
 func (rc *RequestContext) AddGroup(actions ...domain.Action) error {
 	for _, a := range actions {
 		if a == nil {
 			return ErrNilAction
 		}
 	}
+
+	rc.queueMu.Lock()
+	defer rc.queueMu.Unlock()
+
 	if rc.committed {
 		return ErrAlreadyCommitted
 	}

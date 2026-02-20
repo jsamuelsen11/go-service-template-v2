@@ -43,6 +43,7 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		{http.MethodPatch, "/api/v1/projects/{id}"},
 		{http.MethodDelete, "/api/v1/projects/{id}"},
 		{http.MethodPost, "/api/v1/projects/{projectId}/todos"},
+		{http.MethodPatch, "/api/v1/projects/{projectId}/todos/bulk"},
 		{http.MethodPatch, "/api/v1/projects/{projectId}/todos/{todoId}"},
 		{http.MethodDelete, "/api/v1/projects/{projectId}/todos/{todoId}"},
 	}

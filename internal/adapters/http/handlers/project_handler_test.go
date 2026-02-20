@@ -13,6 +13,8 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/adapters/http/handlers"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/project"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 	"github.com/jsamuelsen11/go-service-template-v2/mocks"
 )
 
@@ -408,6 +410,105 @@ func TestRemoveProjectTodo_NotFound(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := withChiParams(httptest.NewRequest(http.MethodDelete, "/api/v1/projects/1/todos/999", nil), map[string]string{"projectId": "1", "todoId": "999"})
 	h.RemoveProjectTodo(rec, req)
+
+	requireStatus(t, rec, http.StatusNotFound)
+}
+
+// --- BulkUpdateProjectTodos ---
+
+func TestBulkUpdateProjectTodos_Success(t *testing.T) {
+	t.Parallel()
+	h, svc := newProjectHandler(t)
+
+	result := &ports.BulkUpdateResult{
+		Updated: []todo.Todo{validTodo()},
+	}
+	svc.EXPECT().BulkUpdateTodos(mock.Anything, int64(1), mock.AnythingOfType("[]ports.TodoUpdate")).
+		Return(result, nil)
+
+	title := "Updated"
+	body := jsonBody(t, dto.BulkUpdateTodosRequest{
+		Updates: []dto.BulkUpdateTodoItem{
+			{TodoID: 1, Title: &title},
+		},
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/1/todos/bulk", body)
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiParams(req, map[string]string{"projectId": "1"})
+	h.BulkUpdateProjectTodos(rec, req)
+
+	requireStatus(t, rec, http.StatusOK)
+	resp := decodeJSON[dto.BulkUpdateTodosResponse](t, rec)
+	if resp.Succeeded != 1 {
+		t.Errorf("Succeeded = %d, want 1", resp.Succeeded)
+	}
+	if resp.Failed != 0 {
+		t.Errorf("Failed = %d, want 0", resp.Failed)
+	}
+}
+
+func TestBulkUpdateProjectTodos_InvalidProjectID(t *testing.T) {
+	t.Parallel()
+	h, _ := newProjectHandler(t)
+
+	body := jsonBody(t, dto.BulkUpdateTodosRequest{
+		Updates: []dto.BulkUpdateTodoItem{{TodoID: 1}},
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/abc/todos/bulk", body)
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiParams(req, map[string]string{"projectId": "abc"})
+	h.BulkUpdateProjectTodos(rec, req)
+
+	requireStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestBulkUpdateProjectTodos_InvalidJSON(t *testing.T) {
+	t.Parallel()
+	h, _ := newProjectHandler(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/1/todos/bulk", bytes.NewBufferString("{bad"))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiParams(req, map[string]string{"projectId": "1"})
+	h.BulkUpdateProjectTodos(rec, req)
+
+	requireStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestBulkUpdateProjectTodos_ValidationError(t *testing.T) {
+	t.Parallel()
+	h, _ := newProjectHandler(t)
+
+	body := jsonBody(t, dto.BulkUpdateTodosRequest{Updates: []dto.BulkUpdateTodoItem{}})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/1/todos/bulk", body)
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiParams(req, map[string]string{"projectId": "1"})
+	h.BulkUpdateProjectTodos(rec, req)
+
+	requireStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestBulkUpdateProjectTodos_ServiceError(t *testing.T) {
+	t.Parallel()
+	h, svc := newProjectHandler(t)
+
+	svc.EXPECT().BulkUpdateTodos(mock.Anything, int64(1), mock.AnythingOfType("[]ports.TodoUpdate")).
+		Return(nil, domain.ErrNotFound)
+
+	title := "Updated"
+	body := jsonBody(t, dto.BulkUpdateTodosRequest{
+		Updates: []dto.BulkUpdateTodoItem{
+			{TodoID: 1, Title: &title},
+		},
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/1/todos/bulk", body)
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiParams(req, map[string]string{"projectId": "1"})
+	h.BulkUpdateProjectTodos(rec, req)
 
 	requireStatus(t, rec, http.StatusNotFound)
 }

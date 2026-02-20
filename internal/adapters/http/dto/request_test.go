@@ -342,6 +342,118 @@ func TestUpdateProjectRequest_Validate(t *testing.T) {
 	}
 }
 
+func TestBulkUpdateTodosRequest_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		req       dto.BulkUpdateTodosRequest
+		wantErr   bool
+		wantField string
+	}{
+		{
+			name: "valid request passes",
+			req: dto.BulkUpdateTodosRequest{
+				Updates: []dto.BulkUpdateTodoItem{
+					{TodoID: 1, Title: stringPtr("Updated")},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:      "empty updates fails",
+			req:       dto.BulkUpdateTodosRequest{Updates: []dto.BulkUpdateTodoItem{}},
+			wantErr:   true,
+			wantField: "updates",
+		},
+		{
+			name: "exceeds max items fails",
+			req: func() dto.BulkUpdateTodosRequest {
+				items := make([]dto.BulkUpdateTodoItem, 21)
+				for i := range items {
+					items[i] = dto.BulkUpdateTodoItem{TodoID: int64(i + 1)}
+				}
+				return dto.BulkUpdateTodosRequest{Updates: items}
+			}(),
+			wantErr:   true,
+			wantField: "updates",
+		},
+		{
+			name: "duplicate todo IDs fails",
+			req: dto.BulkUpdateTodosRequest{
+				Updates: []dto.BulkUpdateTodoItem{
+					{TodoID: 1, Title: stringPtr("A")},
+					{TodoID: 1, Title: stringPtr("B")},
+				},
+			},
+			wantErr:   true,
+			wantField: "updates[1].todo_id",
+		},
+		{
+			name: "non-positive todo ID fails",
+			req: dto.BulkUpdateTodosRequest{
+				Updates: []dto.BulkUpdateTodoItem{
+					{TodoID: 0},
+				},
+			},
+			wantErr:   true,
+			wantField: "updates[0].todo_id",
+		},
+		{
+			name: "empty title fails",
+			req: dto.BulkUpdateTodosRequest{
+				Updates: []dto.BulkUpdateTodoItem{
+					{TodoID: 1, Title: stringPtr("")},
+				},
+			},
+			wantErr:   true,
+			wantField: "updates[0].title",
+		},
+		{
+			name: "invalid status fails",
+			req: dto.BulkUpdateTodosRequest{
+				Updates: []dto.BulkUpdateTodoItem{
+					{TodoID: 1, Status: stringPtr("bad")},
+				},
+			},
+			wantErr:   true,
+			wantField: "updates[0].status",
+		},
+		{
+			name: "invalid category fails",
+			req: dto.BulkUpdateTodosRequest{
+				Updates: []dto.BulkUpdateTodoItem{
+					{TodoID: 1, Category: stringPtr("bad")},
+				},
+			},
+			wantErr:   true,
+			wantField: "updates[0].category",
+		},
+		{
+			name: "progress out of range fails",
+			req: dto.BulkUpdateTodosRequest{
+				Updates: []dto.BulkUpdateTodoItem{
+					{TodoID: 1, ProgressPercent: intPtr(101)},
+				},
+			},
+			wantErr:   true,
+			wantField: "updates[0].progress_percent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.req.Validate()
+			if tt.wantErr {
+				requireValidationField(t, err, tt.wantField)
+			} else if err != nil {
+				t.Errorf("Validate() = %v, want nil", err)
+			}
+		})
+	}
+}
+
 func TestUpdateTodoRequest_Validate(t *testing.T) {
 	t.Parallel()
 

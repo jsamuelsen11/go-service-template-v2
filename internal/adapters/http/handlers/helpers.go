@@ -11,6 +11,7 @@ import (
 	"github.com/jsamuelsen11/go-service-template-v2/internal/adapters/http/dto"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain"
 	"github.com/jsamuelsen11/go-service-template-v2/internal/domain/todo"
+	"github.com/jsamuelsen11/go-service-template-v2/internal/ports"
 )
 
 // parseID extracts an int64 path parameter from the chi URL params.
@@ -126,4 +127,33 @@ func decodeTodoUpdate(w http.ResponseWriter, r *http.Request) *todo.Todo {
 		return nil
 	}
 	return mapUpdateTodoRequest(&req)
+}
+
+// mapBulkUpdateRequest converts BulkUpdateTodoItem DTOs to ports.TodoUpdate
+// slices suitable for the service layer.
+func mapBulkUpdateRequest(items []dto.BulkUpdateTodoItem) []ports.TodoUpdate {
+	updates := make([]ports.TodoUpdate, len(items))
+	for i, item := range items {
+		t := &todo.Todo{}
+		if item.Title != nil {
+			t.Title = *item.Title
+		}
+		if item.Description != nil {
+			t.Description = *item.Description
+		}
+		if item.Status != nil {
+			t.Status = todo.Status(*item.Status)
+		}
+		if item.Category != nil {
+			t.Category = todo.Category(*item.Category)
+		}
+		if item.ProgressPercent != nil {
+			t.ProgressPercent = *item.ProgressPercent
+		}
+		updates[i] = ports.TodoUpdate{
+			TodoID: item.TodoID,
+			Todo:   t,
+		}
+	}
+	return updates
 }

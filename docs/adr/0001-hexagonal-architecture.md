@@ -732,23 +732,24 @@ flowchart TB
     AppSvc["Application Service"]
     DomSvc["Domain Service"]
 
-    subgraph rc["RequestContext"]
-        subgraph stage1["Stage 1: Fetch Data"]
-            GOF["GetOrFetch(key, fetchFn)"]
-            Cache[("In-Memory Cache")]
+    subgraph rc["RequestContext (thread-safe)"]
+        subgraph cache_side["Cache (cacheMu RWMutex)"]
+            GOF["GetOrFetch / GetRef"]
+            Cache[("Thread-Safe Cache<br/>map + SafeRef[T]")]
             GOF -->|"cache miss"| FetchFn["fetchFn() via Port"]
             FetchFn -->|"store result"| Cache
             GOF -->|"cache hit"| Cache
+            Put["Put / Invalidate"]
+            Put -->|"update"| Cache
         end
 
-        subgraph stage2["Stage 2: Process & Stage Writes"]
-            AddAct["AddAction()"]
+        subgraph queue_side["Action Queue (queueMu Mutex)"]
+            AddAct["AddAction / Stage"]
+            Queue[("[]actionItem")]
+            AddAct -->|"stage"| Queue
         end
 
-        Queue[("Action Queue<br/>[]Action")]
-        AddAct -->|"stage"| Queue
-
-        subgraph stage3["Stage 3: Commit"]
+        subgraph commit_side["Commit"]
             Commit["Commit()"]
             CliPort{{"Client Port"}}
             Success["Return nil"]
@@ -775,6 +776,7 @@ flowchart TB
     style GOF fill:#f59e0b,stroke:#d97706,color:#fff
     style Cache fill:#f59e0b,stroke:#d97706,color:#fff
     style FetchFn fill:#f59e0b,stroke:#d97706,color:#fff
+    style Put fill:#f59e0b,stroke:#d97706,color:#fff
     style AddAct fill:#f59e0b,stroke:#d97706,color:#fff
     style Queue fill:#f59e0b,stroke:#d97706,color:#fff
     style Commit fill:#f59e0b,stroke:#d97706,color:#fff
@@ -783,10 +785,15 @@ flowchart TB
     style Success fill:#84cc16,stroke:#65a30d,color:#fff
     style Rollback fill:#ef4444,stroke:#dc2626,color:#fff
     style rc fill:none,stroke:#d97706,stroke-width:2px
-    style stage1 fill:none,stroke:#d97706,stroke-dasharray: 5 5
-    style stage2 fill:none,stroke:#d97706,stroke-dasharray: 5 5
-    style stage3 fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style cache_side fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style queue_side fill:none,stroke:#d97706,stroke-dasharray: 5 5
+    style commit_side fill:none,stroke:#d97706,stroke-dasharray: 5 5
 ```
+
+> **Thread safety**: The cache and action queue use independent mutexes (`cacheMu` and
+> `queueMu`), so they do not constrain each other. Per-entity `SafeRef[T]` wrappers enable
+> multiple goroutines to safely read and write the same cached entity. No lock is ever held
+> during I/O. See [ADR-0002](0002-thread-safety.md) for the complete concurrency design.
 
 **Legend:**
 
@@ -801,7 +808,7 @@ flowchart TB
 | Hexagon (`{{...}}`)                                             | Port / interface boundary        |
 | Circle (`((...))`)                                              | In-memory storage (cache, queue) |
 | Stadium (`([...])`)                                             | External I/O boundary            |
-| Dashed border                                                   | Stage boundary                   |
+| Dashed border                                                   | Independent mutex boundary       |
 
 #### Middleware Injection
 
@@ -859,5 +866,6 @@ component reference, code examples, and implementation guidance.
 - [Netflix: Ready for Changes with Hexagonal Architecture](https://netflixtechblog.com/ready-for-changes-with-hexagonal-architecture-b315ec967749)
 - [Clean Architecture (Robert C. Martin)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 - [Martin Fowler: Anti-Corruption Layer](https://martinfowler.com/bliki/AntiCorruptionLayer.html)
+- [ADR-0002: Thread-Safe Request Context](./0002-thread-safety.md) — detailed concurrency design
 - [Template Architecture Documentation](../ARCHITECTURE.md)
 - [Template ACL Implementation](../ARCHITECTURE.md#adapters-layer-internaladapters)

@@ -186,3 +186,27 @@ func (h *ProjectHandler) RemoveProjectTodo(w http.ResponseWriter, r *http.Reques
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// BulkUpdateProjectTodos handles PATCH /api/v1/projects/{projectId}/todos/bulk.
+func (h *ProjectHandler) BulkUpdateProjectTodos(w http.ResponseWriter, r *http.Request) {
+	projectID, err := parseID(r, "projectId")
+	if err != nil {
+		dto.WriteErrorResponse(w, r, err)
+		return
+	}
+
+	var req dto.BulkUpdateTodosRequest
+	if !decodeAndValidate(w, r, &req) {
+		return
+	}
+
+	updates := mapBulkUpdateRequest(req.Updates)
+
+	result, err := h.svc.BulkUpdateTodos(r.Context(), projectID, updates)
+	if err != nil {
+		dto.WriteErrorResponse(w, r, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, dto.ToBulkUpdateResponse(result))
+}

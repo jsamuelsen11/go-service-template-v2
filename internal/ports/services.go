@@ -45,4 +45,30 @@ type ProjectService interface {
 	// RemoveTodo deletes a todo from the specified project.
 	// Returns domain.ErrNotFound if the project or todo does not exist.
 	RemoveTodo(ctx context.Context, projectID, todoID int64) error
+
+	// BulkUpdateTodos updates multiple todos within the specified project
+	// concurrently. Uses partial success semantics: each update succeeds or
+	// fails independently. Returns a hard error only for request-level
+	// failures (project not found, validation). Individual update failures
+	// are collected in BulkUpdateResult.Errors.
+	BulkUpdateTodos(ctx context.Context, projectID int64, updates []TodoUpdate) (*BulkUpdateResult, error)
+}
+
+// TodoUpdate pairs a todo ID with the updated todo data for bulk operations.
+type TodoUpdate struct {
+	TodoID int64
+	Todo   *todo.Todo
+}
+
+// BulkUpdateError records a single failed todo update within a bulk operation.
+type BulkUpdateError struct {
+	TodoID int64
+	Err    error
+}
+
+// BulkUpdateResult holds the outcomes of a bulk update operation.
+// Updated contains successfully updated todos; Errors contains per-item failures.
+type BulkUpdateResult struct {
+	Updated []todo.Todo
+	Errors  []BulkUpdateError
 }
