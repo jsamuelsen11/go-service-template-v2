@@ -1,0 +1,31 @@
+# Local development environment: service (production image) + Jaeger for trace viewing.
+#
+# Usage:
+#   docker compose up --build          # Start all services, rebuild the Go image
+#   docker compose up --build service  # Start only the Go service
+#   docker compose down                # Stop and remove containers
+#
+# Jaeger UI: http://localhost:16686
+# Service:   http://localhost:8080
+
+services:
+  service:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      APP_PROFILE: local
+      APP_TELEMETRY_ENABLED: "true"
+      APP_TELEMETRY_EXPORTER: otlp
+      APP_TELEMETRY_ENDPOINT: "http://jaeger:4318"
+      APP_TELEMETRY_SERVICE_NAME: go-service-template
+    volumes:
+      - ./configs:/configs:ro
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4318:4318" # OTLP HTTP receiver
